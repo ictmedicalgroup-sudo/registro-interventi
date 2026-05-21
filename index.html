@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medical Group — Registro Interventi</title>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --verde:         #9DBF60;
+  --grigio:        #77797a;
+  --grigio-chiaro: #aaaaaa;
+  --navy:          #4A4C4D;
+  --blue:          #77797a;
+  --blue-mid:      #9DBF60;
+  --blue-light:    #D5E3B7;
+  --blue-xlight:   #EEF5E3;
+  --accent:        #9DBF60;
+  --accent-light:  #EEF5E3;
+  --red:           #C0392B;
+  --red-light:     #FDECEA;
+  --green:         #9DBF60;
+  --green-light:   #EEF5E3;
+  --purple:        #8E44AD;
+  --purple-light:  #F4EAF9;
+  --g50:  #F8F9F8;
+  --g100: #F0F2EE;
+  --g200: #E2E6DF;
+  --g300: #C8CEC4;
+  --g500: #77797a;
+  --g700: #4A4C4D;
+  --g900: #2A2C2D;
+  --sh-sm: 0 1px 3px rgba(74,76,77,.08), 0 1px 2px rgba(74,76,77,.05);
+  --sh-md: 0 4px 12px rgba(74,76,77,.10);
+  --sh-lg: 0 12px 32px rgba(74,76,77,.14), 0 4px 10px rgba(74,76,77,.07);
+  --r:   10px;
+  --rsm:  6px;
+  --rlg: 16px;
+  font-family: 'Raleway', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--g50); color: var(--g900); font-family: 'Raleway', sans-serif; font-size: 14px; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--navy); color: #fff; padding: 10px 22px; border-radius: 8px;
+  font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transition: all .3s;
+  pointer-events: none; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.tok  { background: var(--verde); }
+#toast.terr { background: var(--red); }
+
+/* ── Login ── */
+#lp {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--g50);
+}
+.lcard {
+  background: #fff; border-radius: var(--rlg); padding: 38px;
+  width: 100%; max-width: 420px;
+  box-shadow: 0 4px 32px rgba(74,76,77,.10);
+  border: 1px solid var(--g200);
+}
+.lcard h2 { font-size: 15px; font-weight: 600; color: var(--g700); margin: 24px 0 18px; }
+.lcard label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .8px;
+  text-transform: uppercase; color: var(--g500); margin-bottom: 5px; }
+.lcard input {
+  width: 100%; padding: 10px 13px; border: 1.5px solid var(--g200);
+  border-radius: 8px; background: #EEF5E3; font-family: 'Raleway', sans-serif;
+  font-size: 14px; color: var(--g900); outline: none; transition: border-color .2s;
+  margin-bottom: 14px;
+}
+.lcard input:focus { border-color: var(--verde); }
+.lcard .btn-login {
+  width: 100%; padding: 11px; background: #9DBF60; color: #fff; border: none;
+  border-radius: 8px; font-family: 'Raleway', sans-serif; font-size: 14px;
+  font-weight: 700; cursor: pointer; letter-spacing: .5px; transition: background .2s;
+}
+.lcard .btn-login:hover { background: #8aad4e; }
+#lerr { color: var(--red); font-size: 12px; margin-top: 8px; min-height: 18px; }
+
+/* ── App shell ── */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+#topbar {
+  background: #fff; border-bottom: 1px solid var(--g200); padding: 0 28px;
+  position: sticky; top: 0; z-index: 100; box-shadow: var(--sh-sm);
+}
+#tb-top {
+  height: 52px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--g100);
+}
+#tb-right { display: flex; align-items: center; gap: 14px; }
+#tb-date, #tb-user { font-size: 12px; color: var(--g500); }
+#tb-role {
+  font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  background: var(--blue-xlight); color: var(--verde); padding: 3px 9px; border-radius: 20px;
+}
+#lout {
+  font-size: 11px; font-weight: 700; color: var(--g500); background: none;
+  border: 1.5px solid var(--g300); border-radius: 6px; padding: 5px 13px;
+  cursor: pointer; font-family: 'Raleway', sans-serif; letter-spacing: .4px;
+  text-transform: uppercase; transition: all .17s;
+}
+#lout:hover { border-color: var(--red); color: var(--red); }
+#tb-nav { height: 40px; display: flex; align-items: stretch; }
+.tnb {
+  display: flex; align-items: center; gap: 6px; padding: 0 16px;
+  font-size: 12.5px; font-weight: 600; color: var(--g500);
+  cursor: pointer; border: none; background: none;
+  font-family: 'Raleway', sans-serif; letter-spacing: .3px;
+  border-bottom: 2.5px solid transparent; transition: all .17s;
+  text-transform: uppercase;
+}
+.tnb:hover { color: var(--g700); border-bottom-color: var(--g300); }
+.tnb.active { color: var(--verde); border-bottom-color: var(--verde); }
+main#main { flex: 1; padding: 28px; }
+
+/* ── Pagine ── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.page-title {
+  font-size: 20px; font-weight: 700; color: var(--g900);
+}
+.page-subtitle { font-size: 12px; color: var(--g500); margin-top: 2px; }
+
+/* ── Bottoni ── */
+.btn {
+  padding: 9px 18px; border-radius: var(--rsm); border: none; cursor: pointer;
+  font-family: 'Raleway', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .3px; transition: all .17s; display: inline-flex; align-items: center; gap: 7px;
+}
+.btn-primary { background: var(--verde); color: #fff; }
+.btn-primary:hover { background: #8aad4e; }
+.btn-secondary { background: var(--g100); color: var(--g700); border: 1.5px solid var(--g200); }
+.btn-secondary:hover { background: var(--g200); }
+.btn-danger { background: var(--red-light); color: var(--red); border: 1.5px solid #f5c6c2; }
+.btn-danger:hover { background: #fbd0cc; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-icon { padding: 6px 10px; }
+
+/* ── Filtri ── */
+.filters-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #fff; border: 1px solid var(--g200); border-radius: var(--r);
+  padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--sh-sm);
+}
+.filters-bar label { font-size: 11px; font-weight: 700; color: var(--g500);
+  letter-spacing: .6px; text-transform: uppercase; }
+.fi {
+  padding: 7px 11px; border: 1.5px solid var(--g200); border-radius: var(--rsm);
+  font-family: 'Raleway', sans-serif; font-size: 13px; color: var(--g900);
+  background: var(--g50); outline: none; transition: border-color .2s;
+}
+.fi:focus { border-color: var(--verde); }
+.fi-search { min-width: 200px; }
+
+/* ── Tabella ── */
+.table-wrap {
+  background: #fff; border: 1px solid var(--g200); border-radius: var(--r);
+  box-shadow: var(--sh-sm); overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: var(--g50); font-size: 10.5px; font-weight: 700; color: var(--g500);
+  letter-spacing: .8px; text-transform: uppercase; padding: 10px 14px;
+  border-bottom: 2px solid var(--g200); text-align: left; white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid var(--g100); transition: background .13s; cursor: pointer; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--g50); }
+tbody td { padding: 10px 14px; font-size: 13px; color: var(--g700); vertical-align: middle; }
+.td-num { font-weight: 700; color: var(--verde); font-size: 13px; }
+.td-nome { font-weight: 600; color: var(--g900); }
+.td-muted { color: var(--g500); font-size: 12px; }
+.badge {
+  display: inline-block; padding: 2px 9px; border-radius: 20px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+}
+.badge-dx { background: #EEF5E3; color: #5a8a2a; }
+.badge-sx { background: #EAF0FF; color: #2a5aaa; }
+.badge-bi { background: var(--purple-light); color: var(--purple); }
+
+/* ── Stats cards ── */
+.stats-row { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-card {
+  background: #fff; border: 1px solid var(--g200); border-radius: var(--r);
+  padding: 16px 22px; box-shadow: var(--sh-sm); flex: 1; min-width: 140px;
+}
+.stat-card .sv { font-size: 28px; font-weight: 800; color: var(--verde); line-height: 1; }
+.stat-card .sl { font-size: 11px; font-weight: 600; color: var(--g500);
+  letter-spacing: .5px; text-transform: uppercase; margin-top: 4px; }
+
+/* ── Modal ── */
+#modal-overlay {
+  position: fixed; inset: 0; background: rgba(74,76,77,.45);
+  z-index: 500; display: flex; align-items: flex-start; justify-content: center;
+  padding: 32px 16px; overflow-y: auto;
+}
+.modal {
+  background: #fff; border-radius: var(--rlg); width: 100%; max-width: 760px;
+  box-shadow: var(--sh-lg); border: 1px solid var(--g200);
+  animation: mopen .18s ease-out;
+}
+@keyframes mopen { from { opacity:0; transform: translateY(-12px); } to { opacity:1; transform: none; } }
+.modal-head {
+  padding: 20px 26px 16px; border-bottom: 1px solid var(--g100);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-head h3 { font-size: 16px; font-weight: 700; color: var(--g900); }
+.modal-body { padding: 22px 26px; }
+.modal-foot {
+  padding: 14px 26px; border-top: 1px solid var(--g100);
+  display: flex; justify-content: flex-end; gap: 10px;
+}
+.close-btn {
+  background: none; border: none; cursor: pointer; color: var(--g500);
+  font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 4px;
+  transition: color .15s;
+}
+.close-btn:hover { color: var(--g900); }
+
+/* ── Form grid ── */
+.fg { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+.fg.fg1 { grid-template-columns: 1fr; }
+.fg.fg3 { grid-template-columns: 1fr 1fr 1fr; }
+.fg .span2 { grid-column: span 2; }
+.fg .span3 { grid-column: span 3; }
+.fgroup { display: flex; flex-direction: column; gap: 5px; }
+.fgroup label {
+  font-size: 11px; font-weight: 700; color: var(--g500);
+  letter-spacing: .7px; text-transform: uppercase;
+}
+.fgroup input, .fgroup select, .fgroup textarea {
+  padding: 8px 11px; border: 1.5px solid var(--g200); border-radius: var(--rsm);
+  font-family: 'Raleway', sans-serif; font-size: 13px; color: var(--g900);
+  background: var(--g50); outline: none; transition: border-color .2s;
+}
+.fgroup input:focus, .fgroup select:focus, .fgroup textarea:focus { border-color: var(--verde); background: #fff; }
+.fgroup textarea { min-height: 90px; resize: vertical; }
+.fgroup .check-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.fgroup .check-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--verde); }
+.fgroup .check-row label { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500; color: var(--g700); }
+
+/* ── Dettaglio record ── */
+.det-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.det-item { }
+.det-item .dl { font-size: 10px; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--g500); margin-bottom: 3px; }
+.det-item .dv { font-size: 13px; color: var(--g900); font-weight: 500; }
+.det-item.span2 { grid-column: span 2; }
+.det-desc {
+  background: var(--g50); border: 1px solid var(--g200); border-radius: var(--rsm);
+  padding: 12px 14px; font-size: 12.5px; color: var(--g700); line-height: 1.6;
+}
+.det-section-title {
+  font-size: 10.5px; font-weight: 700; color: var(--verde);
+  letter-spacing: 1px; text-transform: uppercase;
+  border-bottom: 1.5px solid var(--blue-light); padding-bottom: 6px;
+  margin: 18px 0 12px;
+}
+
+/* ── Loader ── */
+.loader { text-align: center; padding: 48px; color: var(--g500); font-size: 13px; }
+
+/* ── Paginazione ── */
+.pag-bar { display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-top: 1px solid var(--g100); }
+.pag-info { font-size: 12px; color: var(--g500); }
+.pag-btns { display: flex; gap: 6px; }
+.pag-btn {
+  padding: 5px 12px; border-radius: var(--rsm); border: 1.5px solid var(--g200);
+  background: #fff; cursor: pointer; font-size: 12px; font-weight: 600;
+  color: var(--g700); font-family: 'Raleway', sans-serif; transition: all .15s;
+}
+.pag-btn:hover:not(:disabled) { border-color: var(--verde); color: var(--verde); }
+.pag-btn:disabled { opacity: .4; cursor: default; }
+.pag-btn.active { background: var(--verde); color: #fff; border-color: var(--verde); }
+
+/* ── Confirm dialog ── */
+#conf-overlay {
+  position: fixed; inset: 0; background: rgba(74,76,77,.5);
+  z-index: 600; display: flex; align-items: center; justify-content: center;
+}
+.conf-box {
+  background: #fff; border-radius: var(--r); padding: 28px 32px;
+  max-width: 380px; width: 100%; box-shadow: var(--sh-lg); text-align: center;
+}
+.conf-box p { font-size: 14px; color: var(--g700); margin: 10px 0 22px; }
+.conf-box .conf-btns { display: flex; gap: 10px; justify-content: center; }
+
+/* ── Lookup tab ── */
+.lookup-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid var(--g100); font-size: 13px;
+}
+.lookup-row:last-child { border-bottom: none; }
+.lookup-row:hover { background: var(--g50); }
+
+/* Nascosto */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Login -->
+<div id="lp">
+  <div class="lcard">
+    <div id="login-logo"></div>
+    <h2>Accedi al sistema</h2>
+    <div class="fgroup">
+      <label>Email</label>
+      <input id="l-email" type="email" placeholder="nome@medicalgroup.it" autocomplete="username">
+    </div>
+    <div class="fgroup">
+      <label>Password</label>
+      <input id="l-pwd" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Accedi</button>
+    <div id="lerr"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" class="hidden">
+  <div id="topbar">
+    <div id="tb-top">
+      <div id="tb-logo"></div>
+      <div id="tb-right">
+        <span id="tb-date"></span>
+        <span id="tb-user"></span>
+        <span id="tb-role"></span>
+        <button id="lout" onclick="doLogout()">Esci</button>
+      </div>
+    </div>
+    <nav id="tb-nav"></nav>
+  </div>
+  <main id="main">
+    <div id="pb"></div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay" class="hidden" onclick="if(event.target===this)closeM()">
+  <div class="modal" id="modal-box"></div>
+</div>
+
+<!-- Confirm -->
+<div id="conf-overlay" class="hidden">
+  <div class="conf-box">
+    <div style="font-size:28px">⚠️</div>
+    <p id="conf-msg">Confermi l'operazione?</p>
+    <div class="conf-btns">
+      <button class="btn btn-secondary" onclick="closeConf()">Annulla</button>
+      <button class="btn btn-danger" id="conf-ok">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════
+const CFG = {
+  URL: 'https://iczsdqcnvauopwkuspti.supabase.co',
+  KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImljenNkcWNudmF1b3B3a3VzcHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NTQ0MjMsImV4cCI6MjA5MjQzMDQyM30.SmcRHPLM2PEq4Hn-5CQhMyQKoz0PN_0lbN_X3l9MNUE',
+  FN:  'https://iczsdqcnvauopwkuspti.supabase.co/functions/v1',
+};
+const T = n => `regint_${n}`;
+
+// ═══════════════════════════════════════════════════════════════
+// STATO GLOBALE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  user: null, token: null,
+  page: 'registro',
+  // dati
+  interventi: [],
+  operatori: [], secondi: [], anestesisti: [], infermieri: [],
+  diagnosi: [], tipiAnestesia: [], tipiIntervento: [], matProt: [], descrizioni: [],
+  // filtri & paginazione
+  filters: { search: '', operatore: '', data_from: '', data_to: '', tipo: '' },
+  page_n: 1, page_size: 25,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const p2 = n => String(n).padStart(2,'0');
+function fmt(d) {
+  if (!d) return '—';
+  const dt = typeof d === 'string' ? new Date(d.length === 10 ? d+'T00:00:00' : d) : d;
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function fmtTime(d) {
+  if (!d) return '—';
+  const dt = typeof d === 'string' ? new Date(d) : d;
+  if (isNaN(dt)) return '—';
+  return `${p2(dt.getHours())}:${p2(dt.getMinutes())}`;
+}
+function dateToStr(d) {
+  return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+}
+let _tid;
+function toast(msg, type='ok') {
+  const el = $('toast'); clearTimeout(_tid);
+  el.textContent = msg;
+  el.className = `show t${type}`;
+  _tid = setTimeout(() => el.className='', 3000);
+}
+function fmtOcchio(dx, sx) {
+  if (dx && sx) return '<span class="badge badge-bi">Binoculare</span>';
+  if (dx) return '<span class="badge badge-dx">OD</span>';
+  if (sx) return '<span class="badge badge-sx">OS</span>';
+  return '<span style="color:var(--g500)">—</span>';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUPABASE REST
+// ═══════════════════════════════════════════════════════════════
+async function db(method, table, opts = {}) {
+  const { flt='', body=null, sel='*', ord='', lim='' } = opts;
+  let url = `${CFG.URL}/rest/v1/${table}?select=${sel}`;
+  if (flt) url += `&${flt}`;
+  if (ord) url += `&order=${ord}`;
+  if (lim) url += `&limit=${lim}`;
+  const headers = {
+    'apikey': CFG.KEY,
+    'Authorization': `Bearer ${S.token || CFG.KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': method === 'POST' ? 'return=representation' : '',
+  };
+  if (method === 'GET') headers['Prefer'] = 'count=exact';
+  const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok) { const e = await res.text(); throw new Error(`${method} ${table}: ${e}`); }
+  if (method === 'DELETE') return null;
+  const data = await res.json();
+  if (method === 'GET') {
+    const ct = res.headers.get('Content-Range');
+    const total = ct ? parseInt(ct.split('/')[1]) : (Array.isArray(data) ? data.length : 0);
+    return { data, total };
+  }
+  return data;
+}
+
+async function dbGet(table, opts = {}) {
+  const r = await db('GET', table, opts);
+  return r.data;
+}
+
+async function supaLogin(email, password) {
+  const res = await fetch(`${CFG.URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': CFG.KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || 'Login fallito');
+  return data;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════
+async function doLogin() {
+  const email = $('l-email').value.trim();
+  const pwd   = $('l-pwd').value;
+  $('lerr').textContent = '';
+  if (!email || !pwd) { $('lerr').textContent = 'Inserisci email e password.'; return; }
+  try {
+    const data = await supaLogin(email, pwd);
+    S.token = data.access_token;
+    S.user  = data.user;
+    // carica ruolo dal profilo
+    try {
+      const rows = await dbGet(T('profili'), { flt: `id=eq.${S.user.id}`, sel: 'ruolo,nome,cognome' });
+      if (rows && rows[0]) {
+        S.user.ruolo = rows[0].ruolo;
+        S.user.nome_display = `${rows[0].nome} ${rows[0].cognome}`;
+      }
+    } catch(e) { S.user.ruolo = 'utente'; }
+    await loadLookup();
+    showApp();
+  } catch(e) {
+    $('lerr').textContent = e.message || 'Credenziali non valide.';
+  }
+}
+
+function doLogout() {
+  S.token = null; S.user = null;
+  $('app').classList.add('hidden');
+  $('lp').classList.remove('hidden');
+  $('l-pwd').value = '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOGO
+// ═══════════════════════════════════════════════════════════════
+function logoSVG(small) {
+  const w = small ? 28 : 36, h = small ? 22 : 28;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 90 70" fill="none">
+    <circle cx="28" cy="22" r="19" stroke="#D5E3B7" stroke-width="3.5" fill="none"/>
+    <circle cx="40" cy="38" r="24" stroke="#77797A" stroke-width="3.5" fill="none"/>
+  </svg>`;
+}
+function logoHTML(small=false) {
+  return `<div style="display:flex;align-items:center;gap:${small?6:10}px;">
+    ${logoSVG(small)}
+    <div style="line-height:1.15;">
+      <div style="font-weight:300;font-size:${small?11:14}px;letter-spacing:4px;text-transform:uppercase;">
+        <span style="color:var(--grigio);">MEDICAL</span><span style="color:var(--verde);">GROUP</span>
+      </div>
+      <div style="font-size:9px;letter-spacing:2px;color:var(--grigio-chiaro);text-transform:uppercase;font-weight:500;">
+        Registro Interventi
+      </div>
+    </div>
+  </div>`;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const tl = $('tb-logo'); if (tl) tl.innerHTML = logoHTML(true);
+  const ll = $('login-logo'); if (ll) ll.innerHTML = logoHTML(false);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SHOW APP
+// ═══════════════════════════════════════════════════════════════
+function showApp() {
+  $('lp').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  // topbar info
+  const now = new Date();
+  $('tb-date').textContent = now.toLocaleDateString('it-IT', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  $('tb-user').textContent = S.user?.nome_display || S.user?.email || '';
+  $('tb-role').textContent = S.user?.ruolo || 'utente';
+  renderNav();
+  goPage('registro');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════════════
+const NAV = [
+  { id: 'registro',  label: '📋 Registro', },
+  { id: 'lookup',    label: '⚙️ Anagrafiche', },
+];
+function renderNav() {
+  $('tb-nav').innerHTML = NAV.map(n =>
+    `<button class="tnb${S.page===n.id?' active':''}" onclick="goPage('${n.id}')">${n.label}</button>`
+  ).join('');
+}
+function goPage(pg) {
+  S.page = pg;
+  renderNav();
+  renderPage();
+}
+function renderPage() {
+  if      (S.page === 'registro') renderRegistro();
+  else if (S.page === 'lookup')   renderLookup();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CARICAMENTO LOOKUP
+// ═══════════════════════════════════════════════════════════════
+async function loadLookup() {
+  const [op1, sec, ane, inf, diag, tan, tint, mat, desc] = await Promise.all([
+    dbGet(T('op1'), { ord: 'nome.asc' }),
+    dbGet(T('secondi'), { ord: 'nome.asc' }),
+    dbGet(T('anestesisti'), { ord: 'nome.asc' }),
+    dbGet(T('infermieri'), { ord: 'nome.asc' }),
+    dbGet(T('diagnosi'), { ord: 'nome.asc' }),
+    dbGet(T('tipo_anestesia'), { ord: 'nome.asc' }),
+    dbGet(T('tipo_intervento'), { ord: 'nome.asc' }),
+    dbGet(T('materiale_protesico'), { ord: 'nome.asc' }),
+    dbGet(T('descrizioni'), { ord: 'codice.asc' }),
+  ]);
+  S.operatori   = op1   || [];
+  S.secondi     = sec   || [];
+  S.anestesisti = ane   || [];
+  S.infermieri  = inf   || [];
+  S.diagnosi    = diag  || [];
+  S.tipiAnestesia   = tan  || [];
+  S.tipiIntervento  = tint || [];
+  S.matProt     = mat   || [];
+  S.descrizioni = desc  || [];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REGISTRO — LISTA
+// ═══════════════════════════════════════════════════════════════
+async function loadInterventi() {
+  const f = S.filters;
+  let flt = '';
+  if (f.operatore)  flt += `&primo_operatore=eq.${encodeURIComponent(f.operatore)}`;
+  if (f.data_from)  flt += `&data_intervento=gte.${f.data_from}`;
+  if (f.data_to)    flt += `&data_intervento=lte.${f.data_to}`;
+  if (f.tipo)       flt += `&tipo_intervento=eq.${encodeURIComponent(f.tipo)}`;
+  if (flt.startsWith('&')) flt = flt.slice(1);
+
+  const offset = (S.page_n - 1) * S.page_size;
+  let url = `${CFG.URL}/rest/v1/${T('interventi')}?select=*`;
+  if (flt) url += `&${flt}`;
+  if (f.search) url += `&cognomenome=ilike.*${encodeURIComponent(f.search)}*`;
+  url += `&order=data_intervento.desc,numero.asc`;
+  url += `&limit=${S.page_size}&offset=${offset}`;
+
+  const headers = {
+    'apikey': CFG.KEY,
+    'Authorization': `Bearer ${S.token || CFG.KEY}`,
+    'Prefer': 'count=exact',
+  };
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  const ct   = res.headers.get('Content-Range');
+  const total = ct ? parseInt(ct.split('/')[1]) : data.length;
+  S.interventi = data;
+  return total;
+}
+
+async function renderRegistro() {
+  const pb = $('pb');
+  pb.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">Registro Interventi</div>
+        <div class="page-subtitle">Elenco degli interventi chirurgici</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="exportPDF()">📄 Stampa PDF</button>
+        <button class="btn btn-primary" onclick="openNuovo()">+ Nuovo intervento</button>
+      </div>
+    </div>
+    <div id="stats-area"></div>
+    <div class="filters-bar">
+      <label>Paziente</label>
+      <input class="fi fi-search" id="f-search" placeholder="Cerca per cognome…" value="${esc(S.filters.search)}" oninput="S.filters.search=this.value;S.page_n=1;renderRegistro()">
+      <label>Operatore</label>
+      <select class="fi" id="f-op" onchange="S.filters.operatore=this.value;S.page_n=1;renderRegistro()">
+        <option value="">Tutti</option>
+        ${S.operatori.map(o=>`<option value="${esc(o.nome)}"${S.filters.operatore===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('')}
+      </select>
+      <label>Dal</label>
+      <input class="fi" type="date" id="f-da" value="${S.filters.data_from}" onchange="S.filters.data_from=this.value;S.page_n=1;renderRegistro()">
+      <label>Al</label>
+      <input class="fi" type="date" id="f-al" value="${S.filters.data_to}" onchange="S.filters.data_to=this.value;S.page_n=1;renderRegistro()">
+      <button class="btn btn-secondary btn-sm" onclick="clearFilters()">✕ Reset</button>
+    </div>
+    <div class="table-wrap">
+      <div class="loader" id="tab-loader">Caricamento…</div>
+      <div id="tab-body" class="hidden"></div>
+    </div>`;
+
+  // Carica stats
+  loadStats();
+
+  try {
+    const total = await loadInterventi();
+    renderTabella(total);
+  } catch(e) {
+    $('tab-loader').textContent = 'Errore caricamento: ' + e.message;
+  }
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch(`${CFG.URL}/rest/v1/${T('interventi')}?select=id&limit=1`, {
+      headers: { 'apikey': CFG.KEY, 'Authorization': `Bearer ${S.token||CFG.KEY}`, 'Prefer': 'count=exact' }
+    });
+    const ct = res.headers.get('Content-Range');
+    const tot = ct ? parseInt(ct.split('/')[1]) : 0;
+    // anno corrente
+    const anno = new Date().getFullYear();
+    const res2 = await fetch(`${CFG.URL}/rest/v1/${T('interventi')}?select=id&data_intervento=gte.${anno}-01-01&data_intervento=lte.${anno}-12-31&limit=1`, {
+      headers: { 'apikey': CFG.KEY, 'Authorization': `Bearer ${S.token||CFG.KEY}`, 'Prefer': 'count=exact' }
+    });
+    const ct2 = res2.headers.get('Content-Range');
+    const tot_anno = ct2 ? parseInt(ct2.split('/')[1]) : 0;
+    $('stats-area').innerHTML = `
+      <div class="stats-row">
+        <div class="stat-card"><div class="sv">${tot}</div><div class="sl">Interventi totali</div></div>
+        <div class="stat-card"><div class="sv">${tot_anno}</div><div class="sl">Interventi ${anno}</div></div>
+        <div class="stat-card"><div class="sv">${S.operatori.length}</div><div class="sl">Operatori</div></div>
+      </div>`;
+  } catch(e) { if($('stats-area')) $('stats-area').innerHTML=''; }
+}
+
+function renderTabella(total) {
+  const rows = S.interventi;
+  $('tab-loader').classList.add('hidden');
+  const tb = $('tab-body');
+  tb.classList.remove('hidden');
+  const pages = Math.ceil(total / S.page_size);
+
+  if (!rows.length) {
+    tb.innerHTML = '<div class="loader" style="color:var(--g500)">Nessun intervento trovato.</div>';
+    return;
+  }
+
+  tb.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>N°</th>
+        <th>Data</th>
+        <th>Paziente</th>
+        <th>Operatore</th>
+        <th>Infermiere</th>
+        <th>Diagnosi</th>
+        <th>Intervento</th>
+        <th>Occhio</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr onclick="openDettaglio(${r.id})">
+            <td class="td-num">${esc(r.numero||'')}</td>
+            <td class="td-muted">${fmt(r.data_intervento)}</td>
+            <td class="td-nome">${esc(r.cognomenome||'')}</td>
+            <td class="td-muted">${esc(r.primo_operatore||'')}</td>
+            <td class="td-muted">${esc(r.infermiere||'')}</td>
+            <td>${esc(r.diagnosi||'')}</td>
+            <td style="font-size:12px">${esc(r.tipo_intervento||'')}</td>
+            <td>${fmtOcchio(r.occhio_dx, r.occhio_sx)}</td>
+            <td onclick="event.stopPropagation()">
+              <div style="display:flex;gap:4px;">
+                <button class="btn btn-secondary btn-sm btn-icon" title="Modifica" onclick="openEdit(${r.id})">✏️</button>
+                <button class="btn btn-danger btn-sm btn-icon" title="Elimina" onclick="confirmDel(${r.id})">🗑</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="pag-bar">
+      <div class="pag-info">Mostrati ${(S.page_n-1)*S.page_size+1}–${Math.min(S.page_n*S.page_size,total)} di ${total}</div>
+      <div class="pag-btns">
+        <button class="pag-btn" ${S.page_n<=1?'disabled':''} onclick="changePage(${S.page_n-1})">‹ Prec</button>
+        ${Array.from({length:Math.min(pages,7)},(_,i)=>{
+          const p=i+1; return `<button class="pag-btn${p===S.page_n?' active':''}" onclick="changePage(${p})">${p}</button>`;
+        }).join('')}
+        <button class="pag-btn" ${S.page_n>=pages?'disabled':''} onclick="changePage(${S.page_n+1})">Succ ›</button>
+      </div>
+    </div>`;
+}
+
+function changePage(n) { S.page_n = n; renderRegistro(); }
+function clearFilters() {
+  S.filters = { search:'', operatore:'', data_from:'', data_to:'', tipo:'' };
+  S.page_n = 1;
+  renderRegistro();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DETTAGLIO
+// ═══════════════════════════════════════════════════════════════
+async function openDettaglio(id) {
+  const r = S.interventi.find(x=>x.id===id);
+  if (!r) return;
+  const html = `
+    <div class="modal-head">
+      <h3>Intervento N° ${esc(r.numero||'')} — ${fmt(r.data_intervento)}</h3>
+      <button class="close-btn" onclick="closeM()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="det-section-title">Paziente</div>
+      <div class="det-grid">
+        <div class="det-item"><div class="dl">Cognome e Nome</div><div class="dv">${esc(r.cognomenome||'—')}</div></div>
+        <div class="det-item"><div class="dl">Data di nascita</div><div class="dv">${fmt(r.data_nascita)}</div></div>
+        <div class="det-item"><div class="dl">N° Cartella</div><div class="dv">${esc(r.numero_cart_cli||'—')}</div></div>
+        <div class="det-item"><div class="dl">Occhio</div><div class="dv">${fmtOcchio(r.occhio_dx, r.occhio_sx)}</div></div>
+      </div>
+      <div class="det-section-title">Équipe</div>
+      <div class="det-grid">
+        <div class="det-item"><div class="dl">Primo Operatore</div><div class="dv">${esc(r.primo_operatore||'—')}</div></div>
+        <div class="det-item"><div class="dl">Secondo Op./Strumentista</div><div class="dv">${esc(r.secondo_operatore||'—')}</div></div>
+        <div class="det-item"><div class="dl">Anestesista</div><div class="dv">${esc(r.anestesista||'—')}</div></div>
+        <div class="det-item"><div class="dl">Infermiere</div><div class="dv">${esc(r.infermiere||'—')}</div></div>
+      </div>
+      <div class="det-section-title">Intervento</div>
+      <div class="det-grid">
+        <div class="det-item"><div class="dl">Diagnosi</div><div class="dv">${esc(r.diagnosi||'—')}</div></div>
+        <div class="det-item"><div class="dl">Tipo Anestesia</div><div class="dv">${esc(r.tipo_anestesia||'—')}</div></div>
+        <div class="det-item span2"><div class="dl">Tipo Intervento</div><div class="dv">${esc(r.tipo_intervento||'—')}</div></div>
+        <div class="det-item span2"><div class="dl">Materiale/Protesi</div><div class="dv">${esc(r.materiale_protesico||'—')}</div></div>
+      </div>
+      <div class="det-section-title">Descrizione operatoria</div>
+      <div class="det-desc">${esc(r.descrizione||'—')}</div>
+      <div class="det-section-title">Orari</div>
+      <div class="det-grid">
+        <div class="det-item"><div class="dl">Data inizio</div><div class="dv">${fmt(r.data_inizio)}</div></div>
+        <div class="det-item"><div class="dl">Ingresso sala</div><div class="dv">${r.ora_ingresso||'—'}</div></div>
+        <div class="det-item"><div class="dl">Inizio anestesia</div><div class="dv">${r.ora_inizio_anestesia||'—'}</div></div>
+        <div class="det-item"><div class="dl">Inizio chirurgia</div><div class="dv">${r.ora_inizio_chirurgia||'—'}</div></div>
+        <div class="det-item"><div class="dl">Fine chirurgia</div><div class="dv">${r.ora_fine_chirurgia||'—'}</div></div>
+        <div class="det-item"><div class="dl">Fine anestesia</div><div class="dv">${r.ora_fine_anestesia||'—'}</div></div>
+        <div class="det-item"><div class="dl">Uscita sala</div><div class="dv">${r.ora_uscita||'—'}</div></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeM()">Chiudi</button>
+      <button class="btn btn-primary" onclick="closeM();openEdit(${r.id})">✏️ Modifica</button>
+    </div>`;
+  openM(html);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FORM NUOVO / MODIFICA
+// ═══════════════════════════════════════════════════════════════
+function buildForm(r = {}) {
+  const selOp  = opts => S.operatori.map(o=>`<option value="${esc(o.nome)}"${r[opts]===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
+  const selSec = S.secondi.map(o=>`<option value="${esc(o.nome)}"${r.secondo_operatore===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
+  const selAne = S.anestesisti.map(o=>`<option value="${esc(o.nome)}"${r.anestesista===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
+  const selInf = S.infermieri.map(o=>`<option value="${esc(o.nome)}"${r.infermiere===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
+  const selDia = S.diagnosi.map(o=>`<option value="${esc(o.nome)}"${r.diagnosi===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
+  const selTAn = S.tipiAnestesia.map(o=>`<option value="${esc(o.nome)}"${r.tipo_anestesia===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
+  const selTIn = S.tipiIntervento.map(o=>`<option value="${esc(o.nome)}"${r.tipo_intervento===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
+  const selMat = S.matProt.map(o=>`<option value="${esc(o.nome)}"${r.materiale_protesico===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
+  return `
+    <div class="fg">
+      <div class="fgroup">
+        <label>Numero</label>
+        <input id="f-numero" type="number" value="${esc(r.numero||'')}">
+      </div>
+      <div class="fgroup">
+        <label>Data intervento</label>
+        <input id="f-data" type="date" value="${r.data_intervento||''}">
+      </div>
+      <div class="fgroup span2">
+        <label>Cognome e Nome paziente</label>
+        <input id="f-cognome" value="${esc(r.cognomenome||'')}">
+      </div>
+      <div class="fgroup">
+        <label>Data di nascita</label>
+        <input id="f-dnascita" type="date" value="${r.data_nascita||''}">
+      </div>
+      <div class="fgroup">
+        <label>N° Cartella Clinica</label>
+        <input id="f-cart" value="${esc(r.numero_cart_cli||'')}">
+      </div>
+      <div class="fgroup">
+        <label>Occhio</label>
+        <div class="check-row"><input type="checkbox" id="f-odx" ${r.occhio_dx?'checked':''}><label for="f-odx">Occhio Destro (OD)</label></div>
+        <div class="check-row"><input type="checkbox" id="f-osx" ${r.occhio_sx?'checked':''}><label for="f-osx">Occhio Sinistro (OS)</label></div>
+      </div>
+      <div class="fgroup">
+        <label>Primo Operatore</label>
+        <select id="f-op1"><option value="">— seleziona —</option>${selOp('primo_operatore')}</select>
+      </div>
+      <div class="fgroup">
+        <label>Secondo Op./Strumentista</label>
+        <select id="f-op2"><option value="">— seleziona —</option>${selSec}</select>
+      </div>
+      <div class="fgroup">
+        <label>Anestesista</label>
+        <select id="f-ane"><option value="">— seleziona —</option>${selAne}</select>
+      </div>
+      <div class="fgroup">
+        <label>Infermiere</label>
+        <select id="f-inf"><option value="">— seleziona —</option>${selInf}</select>
+      </div>
+      <div class="fgroup">
+        <label>Diagnosi</label>
+        <select id="f-diag"><option value="">— seleziona —</option>${selDia}</select>
+      </div>
+      <div class="fgroup">
+        <label>Tipo Anestesia</label>
+        <select id="f-tane"><option value="">— seleziona —</option>${selTAn}</select>
+      </div>
+      <div class="fgroup span2">
+        <label>Tipo Intervento</label>
+        <select id="f-tint"><option value="">— seleziona —</option>${selTIn}</select>
+      </div>
+      <div class="fgroup span2">
+        <label>Materiale / Protesi</label>
+        <select id="f-mat"><option value="">— nessuno —</option>${selMat}</select>
+      </div>
+      <div class="fgroup span2">
+        <label>Descrizione operatoria <span style="color:var(--g500);font-weight:400;text-transform:none">(o scegli template)</span></label>
+        <select onchange="if(this.value){$('f-desc').value=this.value;this.value=''}">
+          <option value="">— inserisci testo o scegli template —</option>
+          ${S.descrizioni.map(d=>`<option value="${esc(d.testo)}">${esc(d.codice)}</option>`).join('')}
+        </select>
+        <textarea id="f-desc" style="margin-top:6px">${esc(r.descrizione||'')}</textarea>
+      </div>
+    </div>
+    <div class="det-section-title" style="margin-top:20px">Orari sala operatoria</div>
+    <div class="fg fg3">
+      <div class="fgroup">
+        <label>Data inizio</label>
+        <input id="f-dinizio" type="date" value="${r.data_inizio||''}">
+      </div>
+      <div class="fgroup">
+        <label>Ingresso sala</label>
+        <input id="f-ora-ing" type="time" value="${r.ora_ingresso||''}">
+      </div>
+      <div class="fgroup">
+        <label>Inizio anestesia</label>
+        <input id="f-ora-ian" type="time" value="${r.ora_inizio_anestesia||''}">
+      </div>
+      <div class="fgroup">
+        <label>Inizio chirurgia</label>
+        <input id="f-ora-ich" type="time" value="${r.ora_inizio_chirurgia||''}">
+      </div>
+      <div class="fgroup">
+        <label>Fine chirurgia</label>
+        <input id="f-ora-fch" type="time" value="${r.ora_fine_chirurgia||''}">
+      </div>
+      <div class="fgroup">
+        <label>Fine anestesia</label>
+        <input id="f-ora-fan" type="time" value="${r.ora_fine_anestesia||''}">
+      </div>
+      <div class="fgroup">
+        <label>Uscita sala</label>
+        <input id="f-ora-usc" type="time" value="${r.ora_uscita||''}">
+      </div>
+    </div>`;
+}
+
+function collectForm() {
+  return {
+    numero:               parseInt($('f-numero').value) || null,
+    data_intervento:      $('f-data').value || null,
+    cognomenome:          $('f-cognome').value.trim() || null,
+    data_nascita:         $('f-dnascita').value || null,
+    numero_cart_cli:      $('f-cart').value.trim() || null,
+    occhio_dx:            $('f-odx').checked,
+    occhio_sx:            $('f-osx').checked,
+    primo_operatore:      $('f-op1').value || null,
+    secondo_operatore:    $('f-op2').value || null,
+    anestesista:          $('f-ane').value || null,
+    infermiere:           $('f-inf').value || null,
+    diagnosi:             $('f-diag').value || null,
+    tipo_anestesia:       $('f-tane').value || null,
+    tipo_intervento:      $('f-tint').value || null,
+    materiale_protesico:  $('f-mat').value || null,
+    descrizione:          $('f-desc').value.trim() || null,
+    data_inizio:          $('f-dinizio').value || null,
+    ora_ingresso:         $('f-ora-ing').value || null,
+    ora_inizio_anestesia: $('f-ora-ian').value || null,
+    ora_inizio_chirurgia: $('f-ora-ich').value || null,
+    ora_fine_chirurgia:   $('f-ora-fch').value || null,
+    ora_fine_anestesia:   $('f-ora-fan').value || null,
+    ora_uscita:           $('f-ora-usc').value || null,
+  };
+}
+
+function openNuovo() {
+  openM(`
+    <div class="modal-head">
+      <h3>Nuovo Intervento</h3>
+      <button class="close-btn" onclick="closeM()">✕</button>
+    </div>
+    <div class="modal-body">${buildForm()}</div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeM()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveNuovo()">💾 Salva</button>
+    </div>`);
+}
+
+async function saveNuovo() {
+  const body = collectForm();
+  if (!body.cognomenome) { toast('Inserisci il nome del paziente','err'); return; }
+  try {
+    await db('POST', T('interventi'), { body });
+    closeM(); toast('Intervento salvato'); renderRegistro();
+  } catch(e) { toast('Errore: ' + e.message, 'err'); }
+}
+
+async function openEdit(id) {
+  const r = S.interventi.find(x=>x.id===id);
+  if (!r) return;
+  openM(`
+    <div class="modal-head">
+      <h3>Modifica Intervento N° ${esc(r.numero||'')} — ${esc(r.cognomenome||'')}</h3>
+      <button class="close-btn" onclick="closeM()">✕</button>
+    </div>
+    <div class="modal-body">${buildForm(r)}</div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeM()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveEdit(${id})">💾 Salva modifiche</button>
+    </div>`);
+}
+
+async function saveEdit(id) {
+  const body = collectForm();
+  try {
+    await db('PATCH', T('interventi'), { flt: `id=eq.${id}`, body });
+    closeM(); toast('Modifiche salvate'); renderRegistro();
+  } catch(e) { toast('Errore: ' + e.message, 'err'); }
+}
+
+function confirmDel(id) {
+  const r = S.interventi.find(x=>x.id===id);
+  openConf(`Eliminare l'intervento di <strong>${esc(r?.cognomenome||'')}</strong>?`, async () => {
+    try {
+      await db('DELETE', T('interventi'), { flt: `id=eq.${id}` });
+      toast('Intervento eliminato'); renderRegistro();
+    } catch(e) { toast('Errore: '+e.message,'err'); }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT PDF
+// ═══════════════════════════════════════════════════════════════
+async function exportPDF() {
+  toast('Generazione PDF in corso…');
+  try {
+    // Carica tutti i record con i filtri attivi (senza paginazione)
+    const f = S.filters;
+    let url = `${CFG.URL}/rest/v1/${T('interventi')}?select=*`;
+    if (f.operatore) url += `&primo_operatore=eq.${encodeURIComponent(f.operatore)}`;
+    if (f.data_from) url += `&data_intervento=gte.${f.data_from}`;
+    if (f.data_to)   url += `&data_intervento=lte.${f.data_to}`;
+    if (f.search)    url += `&cognomenome=ilike.*${encodeURIComponent(f.search)}*`;
+    url += `&order=data_intervento.asc,numero.asc&limit=1000`;
+    const headers = { 'apikey': CFG.KEY, 'Authorization': `Bearer ${S.token||CFG.KEY}` };
+    const res = await fetch(url, { headers });
+    const rows = await res.json();
+    printRegistro(rows);
+  } catch(e) { toast('Errore PDF: '+e.message,'err'); }
+}
+
+function printRegistro(rows) {
+  const now = new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Registro Interventi</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Raleway', sans-serif; font-size: 11px; color: #2A2C2D; padding: 24px; }
+  .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
+  .logo-txt { font-size: 18px; font-weight: 300; letter-spacing: 4px; }
+  .logo-txt span { color: #9DBF60; }
+  .logo-sub { font-size: 9px; letter-spacing: 2px; color: #aaa; text-transform: uppercase; margin-top: 2px; }
+  .title-block { text-align: right; }
+  .title-block h1 { font-size: 16px; font-weight: 700; color: #4A4C4D; }
+  .title-block .meta { font-size: 10px; color: #77797a; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th { background: #F0F2EE; font-size: 8.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+       color: #77797a; padding: 6px 8px; border-bottom: 2px solid #C8CEC4; text-align: left; }
+  td { padding: 6px 8px; border-bottom: 1px solid #E2E6DF; font-size: 10.5px; vertical-align: top; }
+  tr:nth-child(even) td { background: #F8F9F8; }
+  .n { font-weight: 700; color: #9DBF60; }
+  .footer { margin-top: 18px; font-size: 9px; color: #aaa; text-align: center; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="logo-txt">MEDICAL<span>GROUP</span></div>
+    <div class="logo-sub">Registro Interventi</div>
+  </div>
+  <div class="title-block">
+    <h1>Registro Interventi Chirurgici</h1>
+    <div class="meta">Stampato il ${now} — ${rows.length} interventi</div>
+  </div>
+</div>
+<table>
+  <thead><tr>
+    <th>N°</th><th>Data</th><th>Paziente</th><th>Operatore</th>
+    <th>Occhio</th><th>Diagnosi</th><th>Intervento</th><th>Materiale/IOL</th>
+    <th>Anestesia</th><th>Ent.</th><th>In.Ch.</th><th>Fi.Ch.</th>
+  </tr></thead>
+  <tbody>
+    ${rows.map(r=>`<tr>
+      <td class="n">${esc(r.numero||'')}</td>
+      <td>${fmt(r.data_intervento)}</td>
+      <td><strong>${esc(r.cognomenome||'')}</strong><br><span style="color:#77797a;font-size:9.5px">${fmt(r.data_nascita)}</span></td>
+      <td>${esc(r.primo_operatore||'')}</td>
+      <td>${r.occhio_dx&&r.occhio_sx?'OU':r.occhio_dx?'OD':r.occhio_sx?'OS':'—'}</td>
+      <td>${esc(r.diagnosi||'')}</td>
+      <td style="font-size:9.5px">${esc(r.tipo_intervento||'')}</td>
+      <td style="font-size:9.5px">${esc(r.materiale_protesico||'')}</td>
+      <td>${esc(r.tipo_anestesia||'')}</td>
+      <td>${r.ora_ingresso||'—'}</td>
+      <td>${r.ora_inizio_chirurgia||'—'}</td>
+      <td>${r.ora_fine_chirurgia||'—'}</td>
+    </tr>`).join('')}
+  </tbody>
+</table>
+<div class="footer">Medical Group — Registro Interventi Chirurgici — ${now}</div>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 800);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANAGRAFICHE (LOOKUP)
+// ═══════════════════════════════════════════════════════════════
+const LOOKUP_TABS = [
+  { id: 'op1',              label: 'Operatori',      field: 'nome' },
+  { id: 'secondi',          label: 'Sec. Op./Strum.', field: 'nome' },
+  { id: 'anestesisti',      label: 'Anestesisti',     field: 'nome' },
+  { id: 'infermieri',       label: 'Infermieri',      field: 'nome' },
+  { id: 'diagnosi',         label: 'Diagnosi',        field: 'nome' },
+  { id: 'tipo_anestesia',   label: 'Tipo Anestesia',  field: 'nome' },
+  { id: 'tipo_intervento',  label: 'Tipo Intervento', field: 'nome' },
+  { id: 'materiale_protesico', label: 'Mat./Protesi', field: 'nome' },
+  { id: 'descrizioni',      label: 'Testi std.',      field: 'codice', extra: 'testo' },
+];
+let activeTab = 'op1';
+
+async function renderLookup() {
+  const pb = $('pb');
+  pb.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">Anagrafiche</div>
+        <div class="page-subtitle">Gestione delle tabelle di riferimento</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0;border:1px solid var(--g200);border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:var(--sh-sm);margin-bottom:20px;">
+      ${LOOKUP_TABS.map(t=>`<button class="tnb${activeTab===t.id?' active':''}" style="border-radius:0;border-bottom:none;border-right:1px solid var(--g100);padding:0 14px;height:40px;" onclick="activeTab='${t.id}';renderLookup()">${t.label}</button>`).join('')}
+    </div>
+    <div id="lookup-content"><div class="loader">Caricamento…</div></div>`;
+  
+  const tab = LOOKUP_TABS.find(t=>t.id===activeTab);
+  try {
+    const rows = await dbGet(T(tab.id), { ord: `${tab.field}.asc` });
+    renderLookupTab(tab, rows);
+  } catch(e) {
+    $('lookup-content').innerHTML = `<div class="loader">Errore: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderLookupTab(tab, rows) {
+  const lc = $('lookup-content');
+  lc.innerHTML = `
+    <div class="table-wrap">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--g100);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--g500)">${rows.length} voci</span>
+        <button class="btn btn-primary btn-sm" onclick="openLookupNew('${tab.id}','${tab.field}','${tab.extra||''}')">+ Aggiungi</button>
+      </div>
+      ${rows.map(r=>`
+        <div class="lookup-row">
+          <div>
+            <span style="font-weight:600">${esc(r[tab.field]||'')}</span>
+            ${tab.extra ? `<div style="font-size:11px;color:var(--g500);margin-top:2px">${esc((r[tab.extra]||'').substring(0,80))}…</div>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-sm btn-icon" onclick='openLookupEdit(${JSON.stringify(tab)}, ${JSON.stringify(r)})'>✏️</button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="confirmLookupDel('${tab.id}',${r.id})">🗑</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function openLookupNew(tabId, field, extra) {
+  openM(`
+    <div class="modal-head"><h3>Nuova voce</h3><button class="close-btn" onclick="closeM()">✕</button></div>
+    <div class="modal-body">
+      <div class="fg fg1">
+        <div class="fgroup"><label>${field}</label><input id="lk-field" autofocus></div>
+        ${extra ? `<div class="fgroup"><label>${extra}</label><textarea id="lk-extra" style="min-height:120px"></textarea></div>` : ''}
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeM()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveLookupNew('${tabId}','${field}','${extra}')">Salva</button>
+    </div>`);
+}
+async function saveLookupNew(tabId, field, extra) {
+  const body = { [field]: $('lk-field').value.trim() };
+  if (extra && $('lk-extra')) body[extra] = $('lk-extra').value.trim();
+  if (!body[field]) { toast('Campo obbligatorio','err'); return; }
+  try {
+    await db('POST', T(tabId), { body });
+    await loadLookup();
+    closeM(); toast('Voce aggiunta'); renderLookup();
+  } catch(e) { toast('Errore: '+e.message,'err'); }
+}
+
+function openLookupEdit(tab, r) {
+  openM(`
+    <div class="modal-head"><h3>Modifica voce</h3><button class="close-btn" onclick="closeM()">✕</button></div>
+    <div class="modal-body">
+      <div class="fg fg1">
+        <div class="fgroup"><label>${tab.field}</label><input id="lk-field" value="${esc(r[tab.field]||'')}"></div>
+        ${tab.extra ? `<div class="fgroup"><label>${tab.extra}</label><textarea id="lk-extra" style="min-height:120px">${esc(r[tab.extra]||'')}</textarea></div>` : ''}
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeM()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveLookupEdit('${tab.id}',${r.id},'${tab.field}','${tab.extra||''}')">Salva modifiche</button>
+    </div>`);
+}
+async function saveLookupEdit(tabId, id, field, extra) {
+  const body = { [field]: $('lk-field').value.trim() };
+  if (extra && $('lk-extra')) body[extra] = $('lk-extra').value.trim();
+  try {
+    await db('PATCH', T(tabId), { flt: `id=eq.${id}`, body });
+    await loadLookup();
+    closeM(); toast('Modifiche salvate'); renderLookup();
+  } catch(e) { toast('Errore: '+e.message,'err'); }
+}
+function confirmLookupDel(tabId, id) {
+  openConf('Eliminare questa voce?', async () => {
+    try {
+      await db('DELETE', T(tabId), { flt: `id=eq.${id}` });
+      await loadLookup();
+      toast('Voce eliminata'); renderLookup();
+    } catch(e) { toast('Errore: '+e.message,'err'); }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL & CONFIRM
+// ═══════════════════════════════════════════════════════════════
+function openM(html) {
+  $('modal-box').innerHTML = html;
+  $('modal-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeM() {
+  $('modal-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function openConf(msg, cb) {
+  $('conf-msg').innerHTML = msg;
+  $('conf-overlay').classList.remove('hidden');
+  $('conf-ok').onclick = () => { closeConf(); cb(); };
+}
+function closeConf() {
+  $('conf-overlay').classList.add('hidden');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeM(); closeConf(); }
+});
+</script>
+</body>
+</html>
