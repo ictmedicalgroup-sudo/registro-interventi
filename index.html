@@ -6,6 +6,7 @@
 <title>Registro Interventi</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root {
   --verde:         #9DBF60;
@@ -867,8 +868,8 @@ async function openDettaglio(id) {
       </div>
       <div class="det-section-title">Intervento</div>
       <div class="det-grid">
-        <div class="det-item"><div class="dl">Diagnosi</div><div class="dv">${esc(r.diagnosi||'—')}</div></div>
-        <div class="det-item"><div class="dl">Tipo Anestesia</div><div class="dv">${esc(r.tipo_anestesia||'—')}</div></div>
+        <div class="det-item span2"><div class="dl">Diagnosi</div><div class="dv">${esc(r.diagnosi||'—')}</div></div>
+        <div class="det-item span2"><div class="dl">Tipo Anestesia</div><div class="dv">${esc(r.tipo_anestesia||'—')}</div></div>
         <div class="det-item span2"><div class="dl">Tipo Intervento</div><div class="dv">${esc(r.tipo_intervento||'—')}</div></div>
         <div class="det-item span2"><div class="dl">Protesi e Materiali</div><div class="dv">${esc(r.materiale_protesico||'—')}</div></div>
       </div>
@@ -893,7 +894,7 @@ async function openDettaglio(id) {
     </div>
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeM()">Chiudi</button>
-      <button class="btn btn-secondary" onclick="printSingoloIntervento(${r.id})">📄 Stampa PDF</button>
+      <button class="btn btn-secondary" onclick="printSingoloIntervento(${r.id})">📄 Scarica PDF</button>
       <button class="btn btn-primary" onclick="closeM();openEdit(${r.id})">✏️ Modifica</button>
     </div>`;
   openM(html);
@@ -903,104 +904,213 @@ async function openDettaglio(id) {
 function printSingoloIntervento(id) {
   const r = S.interventi.find(x=>x.id===id);
   if (!r) return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const PW   = 210;   // larghezza A4
+  const PH   = 297;   // altezza A4
+  const ML   = 16;    // margine sx
+  const MR   = 16;    // margine dx
+  const MT   = 14;    // margine top
+  const CW   = PW - ML - MR;  // larghezza utile
+  const VERDE   = [157, 191, 96];
+  const GRIGIO  = [119, 121, 122];
+  const NAVY    = [74,  76,  77];
+  const LGRAY   = [226, 230, 223];
+  const BGRAY   = [248, 249, 248];
+
+  let y = MT;
+
+  // ── helpers ──────────────────────────────────────────────────
+  function lbl(text, x, yy, w) {
+    doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.setTextColor(...GRIGIO);
+    doc.text(text.toUpperCase(), x, yy);
+  }
+  function val(text, x, yy, w, opts={}) {
+    doc.setFontSize(9.5); doc.setFont('helvetica', opts.bold?'bold':'normal');
+    doc.setTextColor(...NAVY);
+    const lines = doc.splitTextToSize(String(text||'—'), w);
+    doc.text(lines, x, yy + 4);
+    const h = lines.length * 4;
+    doc.setDrawColor(...LGRAY);
+    doc.line(x, yy + h + 2, x + w, yy + h + 2);
+    return h + 5;
+  }
+  function section(text, yy) {
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.setTextColor(...VERDE);
+    doc.text(text.toUpperCase(), ML, yy);
+    doc.setDrawColor(...VERDE);
+    doc.setLineWidth(0.4);
+    doc.line(ML, yy + 1.5, ML + CW, yy + 1.5);
+    doc.setLineWidth(0.2);
+    return yy + 6;
+  }
+  function grid3(items, yy) {
+    const W = (CW - 6) / 3;
+    let maxH = 0;
+    items.forEach((item, i) => {
+      const x = ML + i * (W + 3);
+      lbl(item[0], x, yy, W);
+      const h = val(item[1], x, yy, W);
+      if (h > maxH) maxH = h;
+    });
+    return yy + maxH + 4;
+  }
+  function grid2(items, yy) {
+    const W = (CW - 4) / 2;
+    let maxH = 0;
+    items.forEach((item, i) => {
+      const x = ML + i * (W + 4);
+      lbl(item[0], x, yy, W);
+      const h = val(item[1], x, yy, W);
+      if (h > maxH) maxH = h;
+    });
+    return yy + maxH + 4;
+  }
+  function full(labelTxt, valueTxt, yy) {
+    lbl(labelTxt, ML, yy, CW);
+    const h = val(valueTxt, ML, yy, CW);
+    return yy + h + 4;
+  }
+  function descBox(text, yy) {
+    const lines = doc.splitTextToSize(String(text||''), CW - 6);
+    const bh = Math.max(lines.length * 4.2 + 6, 20);
+    doc.setFillColor(...BGRAY);
+    doc.setDrawColor(...LGRAY);
+    doc.roundedRect(ML, yy, CW, bh, 2, 2, 'FD');
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.setTextColor(...NAVY);
+    doc.text(lines, ML + 3, yy + 5);
+    return yy + bh + 5;
+  }
+  function firmaBox(yy) {
+    lbl('Firma Primo Operatore', ML, yy, CW/2);
+    const bh = 18;
+    doc.setDrawColor(...NAVY);
+    doc.setLineWidth(0.3);
+    doc.line(ML, yy + bh, ML + CW/2, yy + bh);
+    if (r.firma_operatore) {
+      doc.setFontSize(9); doc.setFont('helvetica','italic');
+      doc.setTextColor(...NAVY);
+      doc.text(r.firma_operatore, ML, yy + bh - 2);
+    }
+    return yy + bh + 5;
+  }
+  function newPageIfNeeded(needed) {
+    if (y + needed > PH - 14) {
+      doc.addPage();
+      y = MT;
+    }
+  }
+
+  // ── HEADER ────────────────────────────────────────────────────
+  // Logo MEDICALGROUP
+  doc.setFontSize(14); doc.setFont('helvetica','light');
+  doc.setTextColor(...GRIGIO);
+  doc.text('MEDICAL', ML, y + 5);
+  const mw = doc.getTextWidth('MEDICAL');
+  doc.setTextColor(...VERDE);
+  doc.text('GROUP', ML + mw, y + 5);
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.setTextColor(170,170,170);
+  doc.text('REGISTRO INTERVENTI CHIRURGICI', ML, y + 9);
+
+  // Progressivo a destra
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.setTextColor(...NAVY);
+  const progTxt = 'Progressivo Intervento ' + fmtNumero(r);
+  doc.text(progTxt, PW - MR, y + 5, { align: 'right' });
+  doc.setFontSize(8.5); doc.setFont('helvetica','normal');
+  doc.setTextColor(...GRIGIO);
+  doc.text('Data: ' + fmt(r.data_intervento), PW - MR, y + 9.5, { align: 'right' });
+
+  // Cartella clinica
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.setTextColor(...GRIGIO);
+  doc.text('CARTELLA CLINICA N°', PW - MR - 42, y + 14.5);
+  doc.setDrawColor(...NAVY);
+  doc.setLineWidth(0.3);
+  doc.line(PW - MR - 42, y + 16, PW - MR, y + 16);
+
+  // Linea verde sotto header
+  doc.setDrawColor(...VERDE);
+  doc.setLineWidth(0.8);
+  doc.line(ML, y + 18, ML + CW, y + 18);
+  doc.setLineWidth(0.2);
+  y += 24;
+
+  // ── PAZIENTE ──────────────────────────────────────────────────
   const occhioExt = [r.occhio_dx?'Occhio Destro':null, r.occhio_sx?'Occhio Sinistro':null].filter(Boolean).join(' / ') || '—';
+  y = section('Paziente', y);
+  y = grid3([
+    ['Cognome e Nome', r.cognomenome||''],
+    ['Data di Nascita', fmt(r.data_nascita)],
+    ['Intervento Eseguito in', occhioExt],
+  ], y);
+
+  // ── ÉQUIPE ────────────────────────────────────────────────────
+  newPageIfNeeded(28);
+  y = section('Équipe', y);
+  y = grid2([
+    ['Primo Operatore',                r.primo_operatore||''],
+    ['Secondo Operatore / Strumentista', r.secondo_operatore||''],
+  ], y);
+  y = grid2([
+    ['Anestesista', r.anestesista||''],
+    ['Infermiere',  r.infermiere||''],
+  ], y);
+
+  // ── INTERVENTO ────────────────────────────────────────────────
+  newPageIfNeeded(36);
+  y = section('Intervento', y);
+  y = full('Diagnosi',       r.diagnosi||'', y);
+  y = full('Tipo Anestesia', r.tipo_anestesia||'', y);
+  y = full('Tipo Intervento', r.tipo_intervento||'', y);
+  y = full('Protesi e Materiali', r.materiale_protesico||'', y);
+
+  // ── DESCRIZIONE ───────────────────────────────────────────────
+  newPageIfNeeded(30);
+  y = section('Descrizione Intervento', y);
+  y = descBox(r.descrizione||'', y);
+
+  // ── ORARI ─────────────────────────────────────────────────────
+  newPageIfNeeded(28);
+  y = section('Orari Sala Operatoria', y);
+  y = grid3([
+    ['Ingresso Sala Operatoria', r.ora_ingresso||'—'],
+    ['Inizio Anestesia',         r.ora_inizio_anestesia||'—'],
+    ['Inizio Intervento',        r.ora_inizio_chirurgia||'—'],
+  ], y);
+  y = grid3([
+    ['Fine Intervento',          r.ora_fine_chirurgia||'—'],
+    ['Fine Anestesia',           r.ora_fine_anestesia||'—'],
+    ['Uscita Sala Operatoria',   r.ora_uscita||'—'],
+  ], y);
+
+  // ── FIRMA ─────────────────────────────────────────────────────
+  newPageIfNeeded(28);
+  y = section('Firma', y);
+  y = firmaBox(y);
+
+  // ── FOOTER ────────────────────────────────────────────────────
   const now = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<title>Intervento ${fmtNumero(r)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;600;700&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Raleway',sans-serif;font-size:11px;color:#2A2C2D;padding:28px 32px}
-  .header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #9DBF60;padding-bottom:12px;margin-bottom:16px}
-  .logo-txt{font-size:16px;font-weight:300;letter-spacing:4px}
-  .logo-txt span{color:#9DBF60}
-  .logo-sub{font-size:8px;letter-spacing:2px;color:#aaa;text-transform:uppercase;margin-top:2px}
-  .prog{text-align:right}
-  .prog h1{font-size:13px;font-weight:700;color:#4A4C4D}
-  .prog .sub{font-size:10px;color:#77797a;margin-top:2px}
-  .cart-box{margin-top:6px;text-align:right}
-  .cart-label{font-size:9px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:#77797a}
-  .cart-line{border-bottom:1px solid #4A4C4D;min-width:120px;display:inline-block;height:16px;margin-top:3px}
-  .section{margin:14px 0 6px;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#9DBF60;border-bottom:1px solid #D5E3B7;padding-bottom:4px}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;margin-bottom:8px}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:8px}
-  .item .lbl{font-size:8.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#77797a;margin-bottom:2px}
-  .item .val{font-size:11px;color:#2A2C2D;border-bottom:1px solid #E2E6DF;padding-bottom:3px;min-height:16px}
-  .desc-box{border:1px solid #E2E6DF;border-radius:4px;padding:8px 10px;font-size:10.5px;line-height:1.6;color:#4A4C4D;min-height:60px;background:#F8F9F8}
-  .firma-box{border-bottom:1px solid #4A4C4D;min-height:40px;margin-top:6px}
-  .footer{margin-top:20px;font-size:8.5px;color:#aaa;text-align:center;border-top:1px solid #E2E6DF;padding-top:8px}
-  @media print{body{padding:18px 22px}}
-</style>
-</head>
-<body>
-<div class="header">
-  <div>
-    <div class="logo-txt">MEDICAL<span>GROUP</span></div>
-    <div class="logo-sub">Registro Interventi Chirurgici</div>
-  </div>
-  <div class="prog">
-    <h1>Progressivo Intervento ${fmtNumero(r)}</h1>
-    <div class="sub">Data: ${fmt(r.data_intervento)}</div>
-    <div class="cart-box">
-      <div class="cart-label">Cartella Clinica N°</div><br>
-      <span class="cart-line"></span>
-    </div>
-  </div>
-</div>
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+    doc.setTextColor(170,170,170);
+    doc.setDrawColor(...LGRAY);
+    doc.line(ML, PH - 10, ML + CW, PH - 10);
+    doc.text(`Medical Group — Registro Interventi Chirurgici — ${now}`, ML, PH - 6);
+    if (pages > 1) doc.text(`Pag. ${i}/${pages}`, PW - MR, PH - 6, { align: 'right' });
+  }
 
-<div class="section">Paziente</div>
-<div class="grid3">
-  <div class="item"><div class="lbl">Cognome e Nome</div><div class="val">${esc(r.cognomenome||'')}</div></div>
-  <div class="item"><div class="lbl">Data di Nascita</div><div class="val">${fmt(r.data_nascita)}</div></div>
-  <div class="item"><div class="lbl">Intervento Eseguito in</div><div class="val">${occhioExt}</div></div>
-</div>
-
-<div class="section">Équipe</div>
-<div class="grid2">
-  <div class="item"><div class="lbl">Primo Operatore</div><div class="val">${esc(r.primo_operatore||'')}</div></div>
-  <div class="item"><div class="lbl">Secondo Operatore / Strumentista</div><div class="val">${esc(r.secondo_operatore||'')}</div></div>
-  <div class="item"><div class="lbl">Anestesista</div><div class="val">${esc(r.anestesista||'')}</div></div>
-  <div class="item"><div class="lbl">Infermiere</div><div class="val">${esc(r.infermiere||'')}</div></div>
-</div>
-
-<div class="section">Intervento</div>
-<div class="grid2">
-  <div class="item"><div class="lbl">Diagnosi</div><div class="val">${esc(r.diagnosi||'')}</div></div>
-  <div class="item"><div class="lbl">Tipo Anestesia</div><div class="val">${esc(r.tipo_anestesia||'')}</div></div>
-  <div class="item" style="grid-column:span 2"><div class="lbl">Tipo Intervento</div><div class="val">${esc(r.tipo_intervento||'')}</div></div>
-  <div class="item" style="grid-column:span 2"><div class="lbl">Protesi e Materiali</div><div class="val">${esc(r.materiale_protesico||'')}</div></div>
-</div>
-
-<div class="section">Descrizione Intervento</div>
-<div class="desc-box">${esc(r.descrizione||'')}</div>
-
-<div class="section">Orari Sala Operatoria</div>
-<div class="grid3">
-  <div class="item"><div class="lbl">Ingresso Sala Operatoria</div><div class="val">${r.ora_ingresso||'—'}</div></div>
-  <div class="item"><div class="lbl">Inizio Anestesia</div><div class="val">${r.ora_inizio_anestesia||'—'}</div></div>
-  <div class="item"><div class="lbl">Inizio Intervento</div><div class="val">${r.ora_inizio_chirurgia||'—'}</div></div>
-  <div class="item"><div class="lbl">Fine Intervento</div><div class="val">${r.ora_fine_chirurgia||'—'}</div></div>
-  <div class="item"><div class="lbl">Fine Anestesia</div><div class="val">${r.ora_fine_anestesia||'—'}</div></div>
-  <div class="item"><div class="lbl">Uscita Sala Operatoria</div><div class="val">${r.ora_uscita||'—'}</div></div>
-</div>
-
-<div class="section">Firma</div>
-<div class="grid2">
-  <div class="item">
-    <div class="lbl">Firma Primo Operatore</div>
-    <div class="firma-box">${esc(r.firma_operatore||'')}</div>
-  </div>
-</div>
-
-<div class="footer">Medical Group — Registro Interventi Chirurgici — Stampato il ${now}</div>
-</body></html>`);
-  win.document.close();
-  win.focus();
-  setTimeout(()=>win.print(), 700);
+  // ── DOWNLOAD ──────────────────────────────────────────────────
+  const fname = `intervento_${fmtNumero(r).replace('/','_')}_${(r.cognomenome||'paziente').replace(/\s+/g,'_').toLowerCase()}.pdf`;
+  doc.save(fname);
 }
 
 // ═══════════════════════════════════════════════════════════════
