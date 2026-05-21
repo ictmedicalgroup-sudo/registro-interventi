@@ -264,6 +264,20 @@ tbody td { padding: 10px 14px; font-size: 13px; color: var(--g700); vertical-ali
   margin: 18px 0 12px;
 }
 
+
+/* ── Multi-select diagnosi ── */
+.ms-wrap {
+  border: 1.5px solid var(--g200); border-radius: var(--rsm);
+  background: var(--g50); max-height: 140px; overflow-y: auto; padding: 4px 0;
+}
+.ms-wrap label {
+  display: flex; align-items: center; gap: 8px; padding: 5px 11px;
+  font-size: 13px; color: var(--g700); cursor: pointer; transition: background .12s;
+  text-transform: none; letter-spacing: 0; font-weight: 400;
+}
+.ms-wrap label:hover { background: var(--g100); }
+.ms-wrap input[type=checkbox] { width:14px; height:14px; accent-color: var(--verde); flex-shrink:0; }
+
 /* ── Loader ── */
 .loader { text-align: center; padding: 48px; color: var(--g500); font-size: 13px; }
 
@@ -445,13 +459,14 @@ async function db(method, table, opts = {}) {
     'apikey': CFG.KEY,
     'Authorization': `Bearer ${S.token || CFG.KEY}`,
     'Content-Type': 'application/json',
-    'Prefer': method === 'POST' ? 'return=representation' : '',
+    'Prefer': (method === 'GET') ? 'count=exact' : (method === 'DELETE' ? '' : 'return=representation'),
   };
-  if (method === 'GET') headers['Prefer'] = 'count=exact';
   const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
   if (!res.ok) { const e = await res.text(); throw new Error(`${method} ${table}: ${e}`); }
-  if (method === 'DELETE') return null;
-  const data = await res.json();
+  if (method === 'DELETE' || res.status === 204) return null;
+  const text = await res.text();
+  if (!text) return null;
+  const data = JSON.parse(text);
   if (method === 'GET') {
     const ct = res.headers.get('Content-Range');
     const total = ct ? parseInt(ct.split('/')[1]) : (Array.isArray(data) ? data.length : 0);
@@ -490,10 +505,23 @@ async function doLogin() {
     S.user  = data.user;
     // carica ruolo dal profilo
     try {
-      const rows = await dbGet(T('profili'), { flt: `id=eq.${S.user.id}`, sel: 'ruolo,nome,cognome' });
+      let rows = await dbGet(T('profili'), { flt: `id=eq.${S.user.id}`, sel: 'ruolo,nome,cognome' });
+      // Fallback: se il profilo non esiste (trigger non eseguito), lo crea
+      if (!rows || !rows[0]) {
+        const meta = S.user.user_metadata || {};
+        await db('POST', T('profili'), { body: {
+          id: S.user.id,
+          nome:    meta.nome    || '',
+          cognome: meta.cognome || '',
+          email:   S.user.email || '',
+          ruolo:   meta.ruolo   || 'utente',
+          attivo:  true,
+        }});
+        rows = await dbGet(T('profili'), { flt: `id=eq.${S.user.id}`, sel: 'ruolo,nome,cognome' });
+      }
       if (rows && rows[0]) {
         S.user.ruolo = rows[0].ruolo;
-        S.user.nome_display = `${rows[0].nome} ${rows[0].cognome}`;
+        S.user.nome_display = `${rows[0].nome || ''} ${rows[0].cognome || ''}`.trim() || S.user.email;
       }
     } catch(e) { S.user.ruolo = 'utente'; }
     await loadLookup();
@@ -795,23 +823,32 @@ function clearFilters() {
 async function openDettaglio(id) {
   const r = S.interventi.find(x=>x.id===id);
   if (!r) return;
+  // Occhio esteso
+  const occhioExt = [r.occhio_dx?'Occhio Destro':null, r.occhio_sx?'Occhio Sinistro':null].filter(Boolean).join(' / ') || '—';
   const html = `
-    <div class="modal-head">
-      <h3>Intervento N° ${esc(r.numero||'')} — ${fmt(r.data_intervento)}</h3>
-      <button class="close-btn" onclick="closeM()">✕</button>
+    <div class="modal-head" style="align-items:flex-start">
+      <div>
+        <h3 style="font-size:15px">Progressivo Intervento ${fmtNumero(r)} — ${fmt(r.data_intervento)}</h3>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+        <div style="text-align:right">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--g500)">Cartella Clinica N°</div>
+          <div style="margin-top:3px;border-bottom:1.5px solid var(--g400);min-width:100px;height:20px;"></div>
+        </div>
+        <button class="close-btn" onclick="closeM()">✕</button>
+      </div>
     </div>
     <div class="modal-body">
       <div class="det-section-title">Paziente</div>
-      <div class="det-grid">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
         <div class="det-item"><div class="dl">Cognome e Nome</div><div class="dv">${esc(r.cognomenome||'—')}</div></div>
-        <div class="det-item"><div class="dl">Data di nascita</div><div class="dv">${fmt(r.data_nascita)}</div></div>
-        <div class="det-item"><div class="dl">N° Cartella</div><div class="dv">${esc(r.numero_cart_cli||'—')}</div></div>
-        <div class="det-item"><div class="dl">Occhio</div><div class="dv">${fmtOcchio(r.occhio_dx, r.occhio_sx)}</div></div>
+        <div class="det-item"><div class="dl">Data di Nascita</div><div class="dv">${fmt(r.data_nascita)}</div></div>
+        <div class="det-item"><div class="dl">Intervento Eseguito in</div><div class="dv">${occhioExt}</div></div>
       </div>
       <div class="det-section-title">Équipe</div>
       <div class="det-grid">
         <div class="det-item"><div class="dl">Primo Operatore</div><div class="dv">${esc(r.primo_operatore||'—')}</div></div>
-        <div class="det-item"><div class="dl">Secondo Op./Strumentista</div><div class="dv">${esc(r.secondo_operatore||'—')}</div></div>
+        <div class="det-item"><div class="dl">Secondo Operatore / Strumentista</div><div class="dv">${esc(r.secondo_operatore||'—')}</div></div>
         <div class="det-item"><div class="dl">Anestesista</div><div class="dv">${esc(r.anestesista||'—')}</div></div>
         <div class="det-item"><div class="dl">Infermiere</div><div class="dv">${esc(r.infermiere||'—')}</div></div>
       </div>
@@ -820,26 +857,137 @@ async function openDettaglio(id) {
         <div class="det-item"><div class="dl">Diagnosi</div><div class="dv">${esc(r.diagnosi||'—')}</div></div>
         <div class="det-item"><div class="dl">Tipo Anestesia</div><div class="dv">${esc(r.tipo_anestesia||'—')}</div></div>
         <div class="det-item span2"><div class="dl">Tipo Intervento</div><div class="dv">${esc(r.tipo_intervento||'—')}</div></div>
-        <div class="det-item span2"><div class="dl">Materiale/Protesi</div><div class="dv">${esc(r.materiale_protesico||'—')}</div></div>
+        <div class="det-item span2"><div class="dl">Protesi e Materiali</div><div class="dv">${esc(r.materiale_protesico||'—')}</div></div>
       </div>
-      <div class="det-section-title">Descrizione operatoria</div>
+      <div class="det-section-title">Descrizione Intervento</div>
       <div class="det-desc">${esc(r.descrizione||'—')}</div>
-      <div class="det-section-title">Orari</div>
-      <div class="det-grid">
-        <div class="det-item"><div class="dl">Data inizio</div><div class="dv">${fmt(r.data_inizio)}</div></div>
-        <div class="det-item"><div class="dl">Ingresso sala</div><div class="dv">${r.ora_ingresso||'—'}</div></div>
-        <div class="det-item"><div class="dl">Inizio anestesia</div><div class="dv">${r.ora_inizio_anestesia||'—'}</div></div>
-        <div class="det-item"><div class="dl">Inizio chirurgia</div><div class="dv">${r.ora_inizio_chirurgia||'—'}</div></div>
-        <div class="det-item"><div class="dl">Fine chirurgia</div><div class="dv">${r.ora_fine_chirurgia||'—'}</div></div>
-        <div class="det-item"><div class="dl">Fine anestesia</div><div class="dv">${r.ora_fine_anestesia||'—'}</div></div>
-        <div class="det-item"><div class="dl">Uscita sala</div><div class="dv">${r.ora_uscita||'—'}</div></div>
+      <div class="det-section-title">Orari Sala Operatoria</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+        <div class="det-item"><div class="dl">Ingresso Sala Operatoria</div><div class="dv">${r.ora_ingresso||'—'}</div></div>
+        <div class="det-item"><div class="dl">Inizio Anestesia</div><div class="dv">${r.ora_inizio_anestesia||'—'}</div></div>
+        <div class="det-item"><div class="dl">Inizio Intervento</div><div class="dv">${r.ora_inizio_chirurgia||'—'}</div></div>
+        <div class="det-item"><div class="dl">Fine Intervento</div><div class="dv">${r.ora_fine_chirurgia||'—'}</div></div>
+        <div class="det-item"><div class="dl">Fine Anestesia</div><div class="dv">${r.ora_fine_anestesia||'—'}</div></div>
+        <div class="det-item"><div class="dl">Uscita Sala Operatoria</div><div class="dv">${r.ora_uscita||'—'}</div></div>
+      </div>
+      <div class="det-section-title">Firma</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="det-item">
+          <div class="dl">Firma Primo Operatore</div>
+          <div style="border-bottom:1.5px solid var(--g400);min-height:36px;margin-top:6px;padding-bottom:4px;font-size:13px;color:var(--g700)">${esc(r.firma_operatore||'')}</div>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeM()">Chiudi</button>
+      <button class="btn btn-secondary" onclick="printSingoloIntervento(${r.id})">📄 Stampa PDF</button>
       <button class="btn btn-primary" onclick="closeM();openEdit(${r.id})">✏️ Modifica</button>
     </div>`;
   openM(html);
+}
+
+// Stampa PDF singolo intervento (report R_REGISTRO per una riga)
+function printSingoloIntervento(id) {
+  const r = S.interventi.find(x=>x.id===id);
+  if (!r) return;
+  const occhioExt = [r.occhio_dx?'Occhio Destro':null, r.occhio_sx?'Occhio Sinistro':null].filter(Boolean).join(' / ') || '—';
+  const now = new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Intervento ${fmtNumero(r)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Raleway',sans-serif;font-size:11px;color:#2A2C2D;padding:28px 32px}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #9DBF60;padding-bottom:12px;margin-bottom:16px}
+  .logo-txt{font-size:16px;font-weight:300;letter-spacing:4px}
+  .logo-txt span{color:#9DBF60}
+  .logo-sub{font-size:8px;letter-spacing:2px;color:#aaa;text-transform:uppercase;margin-top:2px}
+  .prog{text-align:right}
+  .prog h1{font-size:13px;font-weight:700;color:#4A4C4D}
+  .prog .sub{font-size:10px;color:#77797a;margin-top:2px}
+  .cart-box{margin-top:6px;text-align:right}
+  .cart-label{font-size:9px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:#77797a}
+  .cart-line{border-bottom:1px solid #4A4C4D;min-width:120px;display:inline-block;height:16px;margin-top:3px}
+  .section{margin:14px 0 6px;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#9DBF60;border-bottom:1px solid #D5E3B7;padding-bottom:4px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;margin-bottom:8px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:8px}
+  .item .lbl{font-size:8.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#77797a;margin-bottom:2px}
+  .item .val{font-size:11px;color:#2A2C2D;border-bottom:1px solid #E2E6DF;padding-bottom:3px;min-height:16px}
+  .desc-box{border:1px solid #E2E6DF;border-radius:4px;padding:8px 10px;font-size:10.5px;line-height:1.6;color:#4A4C4D;min-height:60px;background:#F8F9F8}
+  .firma-box{border-bottom:1px solid #4A4C4D;min-height:40px;margin-top:6px}
+  .footer{margin-top:20px;font-size:8.5px;color:#aaa;text-align:center;border-top:1px solid #E2E6DF;padding-top:8px}
+  @media print{body{padding:18px 22px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="logo-txt">MEDICAL<span>GROUP</span></div>
+    <div class="logo-sub">Registro Interventi Chirurgici</div>
+  </div>
+  <div class="prog">
+    <h1>Progressivo Intervento ${fmtNumero(r)}</h1>
+    <div class="sub">Data: ${fmt(r.data_intervento)}</div>
+    <div class="cart-box">
+      <div class="cart-label">Cartella Clinica N°</div><br>
+      <span class="cart-line"></span>
+    </div>
+  </div>
+</div>
+
+<div class="section">Paziente</div>
+<div class="grid3">
+  <div class="item"><div class="lbl">Cognome e Nome</div><div class="val">${esc(r.cognomenome||'')}</div></div>
+  <div class="item"><div class="lbl">Data di Nascita</div><div class="val">${fmt(r.data_nascita)}</div></div>
+  <div class="item"><div class="lbl">Intervento Eseguito in</div><div class="val">${occhioExt}</div></div>
+</div>
+
+<div class="section">Équipe</div>
+<div class="grid2">
+  <div class="item"><div class="lbl">Primo Operatore</div><div class="val">${esc(r.primo_operatore||'')}</div></div>
+  <div class="item"><div class="lbl">Secondo Operatore / Strumentista</div><div class="val">${esc(r.secondo_operatore||'')}</div></div>
+  <div class="item"><div class="lbl">Anestesista</div><div class="val">${esc(r.anestesista||'')}</div></div>
+  <div class="item"><div class="lbl">Infermiere</div><div class="val">${esc(r.infermiere||'')}</div></div>
+</div>
+
+<div class="section">Intervento</div>
+<div class="grid2">
+  <div class="item"><div class="lbl">Diagnosi</div><div class="val">${esc(r.diagnosi||'')}</div></div>
+  <div class="item"><div class="lbl">Tipo Anestesia</div><div class="val">${esc(r.tipo_anestesia||'')}</div></div>
+  <div class="item" style="grid-column:span 2"><div class="lbl">Tipo Intervento</div><div class="val">${esc(r.tipo_intervento||'')}</div></div>
+  <div class="item" style="grid-column:span 2"><div class="lbl">Protesi e Materiali</div><div class="val">${esc(r.materiale_protesico||'')}</div></div>
+</div>
+
+<div class="section">Descrizione Intervento</div>
+<div class="desc-box">${esc(r.descrizione||'')}</div>
+
+<div class="section">Orari Sala Operatoria</div>
+<div class="grid3">
+  <div class="item"><div class="lbl">Ingresso Sala Operatoria</div><div class="val">${r.ora_ingresso||'—'}</div></div>
+  <div class="item"><div class="lbl">Inizio Anestesia</div><div class="val">${r.ora_inizio_anestesia||'—'}</div></div>
+  <div class="item"><div class="lbl">Inizio Intervento</div><div class="val">${r.ora_inizio_chirurgia||'—'}</div></div>
+  <div class="item"><div class="lbl">Fine Intervento</div><div class="val">${r.ora_fine_chirurgia||'—'}</div></div>
+  <div class="item"><div class="lbl">Fine Anestesia</div><div class="val">${r.ora_fine_anestesia||'—'}</div></div>
+  <div class="item"><div class="lbl">Uscita Sala Operatoria</div><div class="val">${r.ora_uscita||'—'}</div></div>
+</div>
+
+<div class="section">Firma</div>
+<div class="grid2">
+  <div class="item">
+    <div class="lbl">Firma Primo Operatore</div>
+    <div class="firma-box">${esc(r.firma_operatore||'')}</div>
+  </div>
+</div>
+
+<div class="footer">Medical Group — Registro Interventi Chirurgici — Stampato il ${now}</div>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(), 700);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -850,15 +998,14 @@ function buildForm(r = {}) {
   const selSec = S.secondi.map(o=>`<option value="${esc(o.nome)}"${r.secondo_operatore===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   const selAne = S.anestesisti.map(o=>`<option value="${esc(o.nome)}"${r.anestesista===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   const selInf = S.infermieri.map(o=>`<option value="${esc(o.nome)}"${r.infermiere===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
-  const selDia = S.diagnosi.map(o=>`<option value="${esc(o.nome)}"${r.diagnosi===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   const selTAn = S.tipiAnestesia.map(o=>`<option value="${esc(o.nome)}"${r.tipo_anestesia===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   const selTIn = S.tipiIntervento.map(o=>`<option value="${esc(o.nome)}"${r.tipo_intervento===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   const selMat = S.matProt.map(o=>`<option value="${esc(o.nome)}"${r.materiale_protesico===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   return `
     <div class="fg">
       <div class="fgroup">
-        <label>Numero</label>
-        <input id="f-numero" type="number" value="${esc(r.numero||'')}">
+        <label>Progressivo</label>
+        <input id="f-numero" type="number" value="${r._nextNum || r.numero || ''}" ${!r.id ? 'readonly style="background:var(--g100);color:var(--g500)"' : ''}>
       </div>
       <div class="fgroup">
         <label>Data intervento</label>
@@ -897,9 +1044,16 @@ function buildForm(r = {}) {
         <label>Infermiere</label>
         <select id="f-inf"><option value="">— seleziona —</option>${selInf}</select>
       </div>
-      <div class="fgroup">
-        <label>Diagnosi</label>
-        <select id="f-diag"><option value="">— seleziona —</option>${selDia}</select>
+      <div class="fgroup span2">
+        <label>Diagnosi <span style="color:var(--g500);font-weight:400;text-transform:none;letter-spacing:0">(selezione multipla)</span></label>
+        <div class="ms-wrap" id="f-diag-wrap">
+          ${S.diagnosi.map(o=>{
+            const curDiag = Array.isArray(r.diagnosi_list) ? r.diagnosi_list :
+                            (r.diagnosi||'').split(',').map(s=>s.trim()).filter(Boolean);
+            const chk = curDiag.includes(o.nome) ? 'checked' : '';
+            return `<label><input type="checkbox" class="f-diag-cb" value="${esc(o.nome)}" ${chk}>${esc(o.nome)}</label>`;
+          }).join('')}
+        </div>
       </div>
       <div class="fgroup">
         <label>Tipo Anestesia</label>
@@ -968,7 +1122,7 @@ function collectForm() {
     secondo_operatore:    $('f-op2').value || null,
     anestesista:          $('f-ane').value || null,
     infermiere:           $('f-inf').value || null,
-    diagnosi:             $('f-diag').value || null,
+    diagnosi:             Array.from(document.querySelectorAll('.f-diag-cb:checked')).map(cb=>cb.value).join(', ') || null,
     tipo_anestesia:       $('f-tane').value || null,
     tipo_intervento:      $('f-tint').value || null,
     materiale_protesico:  $('f-mat').value || null,
@@ -983,13 +1137,24 @@ function collectForm() {
   };
 }
 
-function openNuovo() {
+async function openNuovo() {
+  // Calcola prossimo numero progressivo per l'anno corrente
+  const anno = new Date().getFullYear();
+  let nextNum = 1;
+  try {
+    const res = await fetch(
+      `${CFG.URL}/rest/v1/${T('interventi')}?select=numero&data_intervento=gte.${anno}-01-01&data_intervento=lte.${anno}-12-31&order=numero.desc.nullslast&limit=1`,
+      { headers: { 'apikey': CFG.KEY, 'Authorization': `Bearer ${S.token||CFG.KEY}` } }
+    );
+    const rows = await res.json();
+    if (rows && rows[0] && rows[0].numero) nextNum = rows[0].numero + 1;
+  } catch(e) { /* usa 1 come fallback */ }
   openM(`
     <div class="modal-head">
       <h3>Nuovo Intervento</h3>
       <button class="close-btn" onclick="closeM()">✕</button>
     </div>
-    <div class="modal-body">${buildForm()}</div>
+    <div class="modal-body">${buildForm({ _nextNum: nextNum, _anno: anno })}</div>
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeM()">Annulla</button>
       <button class="btn btn-primary" onclick="saveNuovo()">💾 Salva</button>
