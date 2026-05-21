@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Medical Group — Registro Interventi</title>
+<title>Registro Interventi</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -313,7 +314,7 @@ tbody td { padding: 10px 14px; font-size: 13px; color: var(--g700); vertical-ali
 <div id="lp">
   <div class="lcard">
     <div id="login-logo"></div>
-    <h2>Accedi al sistema</h2>
+    <div style="margin-top:14px;font-size:13px;color:var(--grigio);text-align:center">Accesso riservato al personale autorizzato</div>
     <div class="fgroup">
       <label>Email</label>
       <input id="l-email" type="email" placeholder="nome@medicalgroup.it" autocomplete="username">
@@ -417,6 +418,12 @@ function toast(msg, type='ok') {
   el.textContent = msg;
   el.className = `show t${type}`;
   _tid = setTimeout(() => el.className='', 3000);
+}
+function fmtNumero(r) {
+  if (!r.numero) return '—';
+  // estrae anno da data_intervento (es. 2026-03-25 → 2026)
+  const anno = r.data_intervento ? r.data_intervento.substring(0,4) : (r.anno ? r.anno.replace(/\D/g,'') : '');
+  return anno ? `${r.numero}/${anno}` : String(r.numero);
 }
 function fmtOcchio(dx, sx) {
   if (dx && sx) return '<span class="badge badge-bi">Binoculare</span>';
@@ -563,16 +570,24 @@ function showApp() {
 // ═══════════════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════════════
-const NAV = [
-  { id: 'registro',  label: '📋 Registro', },
-  { id: 'lookup',    label: '⚙️ Anagrafiche', },
+const NAV_ALL   = [
+  { id: 'registro', label: '📋 Registro' },
+  { id: 'lookup',   label: '⚙️ Anagrafiche' },
+  { id: 'utenti',   label: '👥 Utenti' },
 ];
+const NAV_USER  = [
+  { id: 'registro', label: '📋 Registro' },
+];
+function isAdmin() { return S.user?.ruolo === 'admin'; }
 function renderNav() {
-  $('tb-nav').innerHTML = NAV.map(n =>
+  const nav = isAdmin() ? NAV_ALL : NAV_USER;
+  $('tb-nav').innerHTML = nav.map(n =>
     `<button class="tnb${S.page===n.id?' active':''}" onclick="goPage('${n.id}')">${n.label}</button>`
   ).join('');
 }
 function goPage(pg) {
+  // utenti e lookup solo admin
+  if ((pg === 'utenti' || pg === 'lookup') && !isAdmin()) return;
   S.page = pg;
   renderNav();
   renderPage();
@@ -580,6 +595,7 @@ function goPage(pg) {
 function renderPage() {
   if      (S.page === 'registro') renderRegistro();
   else if (S.page === 'lookup')   renderLookup();
+  else if (S.page === 'utenti')   renderUtenti();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -624,7 +640,7 @@ async function loadInterventi() {
   let url = `${CFG.URL}/rest/v1/${T('interventi')}?select=*`;
   if (flt) url += `&${flt}`;
   if (f.search) url += `&cognomenome=ilike.*${encodeURIComponent(f.search)}*`;
-  url += `&order=data_intervento.desc,numero.asc`;
+  url += `&order=data_intervento.desc,numero.asc,id.asc`;
   url += `&limit=${S.page_size}&offset=${offset}`;
 
   const headers = {
@@ -650,7 +666,8 @@ async function renderRegistro() {
         <div class="page-subtitle">Elenco degli interventi chirurgici</div>
       </div>
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-secondary" onclick="exportPDF()">📄 Stampa PDF</button>
+        <button class="btn btn-secondary" onclick="exportXLSX()">📊 Esporta XLSX</button>
+        <button class="btn btn-secondary" onclick="exportPDF()">📄 Esporta PDF</button>
         <button class="btn btn-primary" onclick="openNuovo()">+ Nuovo intervento</button>
       </div>
     </div>
@@ -736,7 +753,7 @@ function renderTabella(total) {
       <tbody>
         ${rows.map(r => `
           <tr onclick="openDettaglio(${r.id})">
-            <td class="td-num">${esc(r.numero||'')}</td>
+            <td class="td-num">${fmtNumero(r)}</td>
             <td class="td-muted">${fmt(r.data_intervento)}</td>
             <td class="td-nome">${esc(r.cognomenome||'')}</td>
             <td class="td-muted">${esc(r.primo_operatore||'')}</td>
@@ -1022,6 +1039,69 @@ function confirmDel(id) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// EXPORT XLSX
+// ═══════════════════════════════════════════════════════════════
+async function exportXLSX() {
+  toast('Generazione XLSX in corso…');
+  try {
+    const f = S.filters;
+    let url = `${CFG.URL}/rest/v1/${T('interventi')}?select=*`;
+    if (f.operatore) url += `&primo_operatore=eq.${encodeURIComponent(f.operatore)}`;
+    if (f.data_from) url += `&data_intervento=gte.${f.data_from}`;
+    if (f.data_to)   url += `&data_intervento=lte.${f.data_to}`;
+    if (f.search)    url += `&cognomenome=ilike.*${encodeURIComponent(f.search)}*`;
+    url += `&order=data_intervento.asc,numero.asc&limit=1000`;
+    const res = await fetch(url, { headers: { 'apikey': CFG.KEY, 'Authorization': `Bearer ${S.token||CFG.KEY}` } });
+    const rows = await res.json();
+
+    // Costruisce CSV con BOM per Excel
+    const cols = [
+      ['N°',            r => fmtNumero(r)],
+      ['Data',          r => fmt(r.data_intervento)],
+      ['Paziente',      r => r.cognomenome||''],
+      ['Data nascita',  r => fmt(r.data_nascita)],
+      ['N° Cartella',   r => r.numero_cart_cli||''],
+      ['Occhio',        r => r.occhio_dx&&r.occhio_sx?'OU':r.occhio_dx?'OD':r.occhio_sx?'OS':''],
+      ['Operatore',     r => r.primo_operatore||''],
+      ['Secondo Op.',   r => r.secondo_operatore||''],
+      ['Anestesista',   r => r.anestesista||''],
+      ['Infermiere',    r => r.infermiere||''],
+      ['Diagnosi',      r => r.diagnosi||''],
+      ['Tipo anestesia',r => r.tipo_anestesia||''],
+      ['Tipo intervento',r => r.tipo_intervento||''],
+      ['Materiale/IOL', r => r.materiale_protesico||''],
+      ['Descrizione',   r => r.descrizione||''],
+      ['Ora ingresso',  r => r.ora_ingresso||''],
+      ['Inizio anest.', r => r.ora_inizio_anestesia||''],
+      ['Inizio chir.',  r => r.ora_inizio_chirurgia||''],
+      ['Fine chir.',    r => r.ora_fine_chirurgia||''],
+      ['Fine anest.',   r => r.ora_fine_anestesia||''],
+      ['Uscita sala',   r => r.ora_uscita||''],
+      ['Firma',         r => r.firma_operatore||''],
+    ];
+
+    const csvCell = v => {
+      const s = String(v).replace(/"/g,'""');
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s}"` : s;
+    };
+
+    const header = cols.map(([label]) => csvCell(label)).join(',');
+    const body   = rows.map(r => cols.map(([, fn]) => csvCell(fn(r))).join(',')).join('\n');
+    const csv    = '\uFEFF' + header + '\n' + body;   // BOM per Excel
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    const today = new Date();
+    const ds = `${today.getFullYear()}${p2(today.getMonth()+1)}${p2(today.getDate())}`;
+    link.download = `registro_interventi_${ds}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast('XLSX esportato', 'ok');
+  } catch(e) { toast('Errore XLSX: '+e.message, 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // EXPORT PDF
 // ═══════════════════════════════════════════════════════════════
 async function exportPDF() {
@@ -1090,7 +1170,7 @@ function printRegistro(rows) {
   </tr></thead>
   <tbody>
     ${rows.map(r=>`<tr>
-      <td class="n">${esc(r.numero||'')}</td>
+      <td class="n">${fmtNumero(r)}</td>
       <td>${fmt(r.data_intervento)}</td>
       <td><strong>${esc(r.cognomenome||'')}</strong><br><span style="color:#77797a;font-size:9.5px">${fmt(r.data_nascita)}</span></td>
       <td>${esc(r.primo_operatore||'')}</td>
@@ -1229,6 +1309,153 @@ function confirmLookupDel(tabId, id) {
       toast('Voce eliminata'); renderLookup();
     } catch(e) { toast('Errore: '+e.message,'err'); }
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GESTIONE UTENTI (solo admin)
+// ═══════════════════════════════════════════════════════════════
+async function renderUtenti() {
+  if (!isAdmin()) { goPage('registro'); return; }
+  const pb = $('pb');
+  pb.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">Gestione Utenti</div>
+        <div class="page-subtitle">Profili con accesso all'applicazione</div>
+      </div>
+      <button class="btn btn-primary" onclick="openNuovoUtente()">+ Nuovo utente</button>
+    </div>
+    <div class="table-wrap">
+      <div class="loader" id="utenti-loader">Caricamento…</div>
+      <div id="utenti-body" class="hidden"></div>
+    </div>`;
+  try {
+    const rows = await dbGet(T('profili'), { ord: 'cognome.asc,nome.asc' });
+    renderUtentiTabella(rows);
+  } catch(e) {
+    $('utenti-loader').textContent = 'Errore: ' + e.message;
+  }
+}
+
+function renderUtentiTabella(rows) {
+  $('utenti-loader').classList.add('hidden');
+  const tb = $('utenti-body');
+  tb.classList.remove('hidden');
+  if (!rows.length) {
+    tb.innerHTML = '<div class="loader" style="color:var(--g500)">Nessun utente trovato.</div>';
+    return;
+  }
+  tb.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Cognome e Nome</th>
+        <th>Email</th>
+        <th>Ruolo</th>
+        <th>Attivo</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td class="td-nome">${esc(r.cognome||'')} ${esc(r.nome||'')}</td>
+            <td class="td-muted">${esc(r.email||'')}</td>
+            <td>
+              <span class="badge ${r.ruolo==='admin'?'badge-dx':'badge-sx'}">${esc(r.ruolo||'')}</span>
+            </td>
+            <td>
+              <span class="badge ${r.attivo?'badge-dx':''}" style="${r.attivo?'':'background:var(--g100);color:var(--g500)'}">${r.attivo?'✓ Attivo':'✗ Disattivo'}</span>
+            </td>
+            <td>
+              <div style="display:flex;gap:4px;">
+                <button class="btn btn-secondary btn-sm btn-icon" title="Modifica" onclick='openEditUtente(${JSON.stringify(r)})'>✏️</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function openNuovoUtente() {
+  openM(`
+    <div class="modal-head"><h3>Nuovo Utente</h3><button class="close-btn" onclick="closeM()">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--g500);margin-bottom:16px">L'utente deve prima essere creato in Supabase Auth Dashboard. Qui inserisci il profilo corrispondente.</p>
+      <div class="fg fg1">
+        <div class="fgroup"><label>Nome</label><input id="u-nome"></div>
+        <div class="fgroup"><label>Cognome</label><input id="u-cognome"></div>
+        <div class="fgroup"><label>Email</label><input id="u-email" type="email"></div>
+        <div class="fgroup">
+          <label>Ruolo</label>
+          <select id="u-ruolo">
+            <option value="utente">utente</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeM()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveNuovoUtente()">Salva</button>
+    </div>`);
+}
+
+async function saveNuovoUtente() {
+  const body = {
+    nome:    $('u-nome').value.trim(),
+    cognome: $('u-cognome').value.trim(),
+    email:   $('u-email').value.trim(),
+    ruolo:   $('u-ruolo').value,
+    attivo:  true,
+  };
+  if (!body.email) { toast('Email obbligatoria','err'); return; }
+  try {
+    await db('POST', T('profili'), { body });
+    closeM(); toast('Utente aggiunto'); renderUtenti();
+  } catch(e) { toast('Errore: '+e.message,'err'); }
+}
+
+function openEditUtente(r) {
+  openM(`
+    <div class="modal-head"><h3>Modifica Utente</h3><button class="close-btn" onclick="closeM()">✕</button></div>
+    <div class="modal-body">
+      <div class="fg fg1">
+        <div class="fgroup"><label>Nome</label><input id="u-nome" value="${esc(r.nome||'')}"></div>
+        <div class="fgroup"><label>Cognome</label><input id="u-cognome" value="${esc(r.cognome||'')}"></div>
+        <div class="fgroup"><label>Email</label><input id="u-email" type="email" value="${esc(r.email||'')}"></div>
+        <div class="fgroup">
+          <label>Ruolo</label>
+          <select id="u-ruolo">
+            <option value="utente"${r.ruolo==='utente'?' selected':''}>utente</option>
+            <option value="admin"${r.ruolo==='admin'?' selected':''}>admin</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label>Stato</label>
+          <select id="u-attivo">
+            <option value="true"${r.attivo?' selected':''}>Attivo</option>
+            <option value="false"${!r.attivo?' selected':''}>Disattivo</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeM()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveEditUtente('${r.id}')">Salva modifiche</button>
+    </div>`);
+}
+
+async function saveEditUtente(id) {
+  const body = {
+    nome:    $('u-nome').value.trim(),
+    cognome: $('u-cognome').value.trim(),
+    email:   $('u-email').value.trim(),
+    ruolo:   $('u-ruolo').value,
+    attivo:  $('u-attivo').value === 'true',
+  };
+  try {
+    await db('PATCH', T('profili'), { flt: `id=eq.${id}`, body });
+    closeM(); toast('Modifiche salvate'); renderUtenti();
+  } catch(e) { toast('Errore: '+e.message,'err'); }
 }
 
 // ═══════════════════════════════════════════════════════════════
