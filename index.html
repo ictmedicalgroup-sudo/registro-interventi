@@ -976,14 +976,18 @@ function printSingoloIntervento(id) {
     return yy + h + 4;
   }
   function descBox(text, yy) {
-    const lines = doc.splitTextToSize(String(text||''), CW - 6);
-    const bh = Math.max(lines.length * 4.2 + 6, 20);
+    // Imposta font PRIMA di calcolare il wrap, così splitTextToSize
+    // usa le stesse metriche con cui poi disegna il testo
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    const innerW = CW - 8;
+    const lines  = doc.splitTextToSize(String(text||''), innerW);
+    const lineH  = doc.getLineHeight() / doc.internal.scaleFactor;
+    const bh     = Math.max(lines.length * lineH + 8, 20);
     doc.setFillColor(...BGRAY);
     doc.setDrawColor(...LGRAY);
     doc.roundedRect(ML, yy, CW, bh, 2, 2, 'FD');
-    doc.setFontSize(9); doc.setFont('helvetica','normal');
     doc.setTextColor(...NAVY);
-    doc.text(lines, ML + 3, yy + 5);
+    doc.text(lines, ML + 4, yy + 5);
     return yy + bh + 5;
   }
   function firmaBox(yy) {
