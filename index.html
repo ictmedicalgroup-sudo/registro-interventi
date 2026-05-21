@@ -640,7 +640,7 @@ async function loadInterventi() {
   let url = `${CFG.URL}/rest/v1/${T('interventi')}?select=*`;
   if (flt) url += `&${flt}`;
   if (f.search) url += `&cognomenome=ilike.*${encodeURIComponent(f.search)}*`;
-  url += `&order=data_intervento.desc,numero.asc,id.asc`;
+  url += `&order=data_intervento.desc.nullslast,numero.desc.nullslast`;
   url += `&limit=${S.page_size}&offset=${offset}`;
 
   const headers = {
