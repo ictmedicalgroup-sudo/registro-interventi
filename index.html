@@ -976,13 +976,15 @@ function printSingoloIntervento(id) {
     return yy + h + 4;
   }
   function descBox(text, yy) {
-    // Imposta font PRIMA di calcolare il wrap, così splitTextToSize
-    // usa le stesse metriche con cui poi disegna il testo
     doc.setFontSize(9); doc.setFont('helvetica','normal');
-    const innerW = CW - 8;
+    // innerW in pt (jsPDF splitTextToSize vuole pt quando unit=mm)
+    const mmToPt = 2.8346;
+    const innerW = (CW - 8) * mmToPt;
     const lines  = doc.splitTextToSize(String(text||''), innerW);
-    const lineH  = doc.getLineHeight() / doc.internal.scaleFactor;
-    const bh     = Math.max(lines.length * lineH + 8, 20);
+    // altezza per riga: fontSize/pt * fattore interlinea (1.35) / mmToPt
+    const lineH  = (9 * 1.35) / mmToPt;
+    const PAD    = 8;   // padding top+bottom
+    const bh     = Math.max(lines.length * lineH + PAD, 20);
     doc.setFillColor(...BGRAY);
     doc.setDrawColor(...LGRAY);
     doc.roundedRect(ML, yy, CW, bh, 2, 2, 'FD');
