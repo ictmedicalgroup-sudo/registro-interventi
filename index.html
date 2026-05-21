@@ -666,7 +666,7 @@ async function renderRegistro() {
         <div class="page-subtitle">Elenco degli interventi chirurgici</div>
       </div>
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-secondary" onclick="exportXLSX()">📊 Esporta XLSX</button>
+        <button class="btn btn-secondary" onclick="exportXLSX()">📊 Esporta CSV</button>
         <button class="btn btn-secondary" onclick="exportPDF()">📄 Esporta PDF</button>
         <button class="btn btn-primary" onclick="openNuovo()">+ Nuovo intervento</button>
       </div>
@@ -1379,11 +1379,11 @@ function openNuovoUtente() {
   openM(`
     <div class="modal-head"><h3>Nuovo Utente</h3><button class="close-btn" onclick="closeM()">✕</button></div>
     <div class="modal-body">
-      <p style="font-size:12px;color:var(--g500);margin-bottom:16px">L'utente deve prima essere creato in Supabase Auth Dashboard. Qui inserisci il profilo corrispondente.</p>
       <div class="fg fg1">
         <div class="fgroup"><label>Nome</label><input id="u-nome"></div>
         <div class="fgroup"><label>Cognome</label><input id="u-cognome"></div>
-        <div class="fgroup"><label>Email</label><input id="u-email" type="email"></div>
+        <div class="fgroup"><label>Email</label><input id="u-email" type="email" placeholder="nome@medicalgroup.it"></div>
+        <div class="fgroup"><label>Password</label><input id="u-pwd" type="password" placeholder="minimo 8 caratteri"></div>
         <div class="fgroup">
           <label>Ruolo</label>
           <select id="u-ruolo">
@@ -1395,23 +1395,38 @@ function openNuovoUtente() {
     </div>
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeM()">Annulla</button>
-      <button class="btn btn-primary" onclick="saveNuovoUtente()">Salva</button>
+      <button class="btn btn-primary" id="u-save-btn" onclick="saveNuovoUtente()">Crea utente</button>
     </div>`);
 }
 
 async function saveNuovoUtente() {
-  const body = {
-    nome:    $('u-nome').value.trim(),
-    cognome: $('u-cognome').value.trim(),
-    email:   $('u-email').value.trim(),
-    ruolo:   $('u-ruolo').value,
-    attivo:  true,
-  };
-  if (!body.email) { toast('Email obbligatoria','err'); return; }
+  const nome    = $('u-nome').value.trim();
+  const cognome = $('u-cognome').value.trim();
+  const email   = $('u-email').value.trim();
+  const pwd     = $('u-pwd').value;
+  const ruolo   = $('u-ruolo').value;
+  if (!email || !pwd) { toast('Email e password obbligatorie','err'); return; }
+  if (pwd.length < 8)  { toast('Password minimo 8 caratteri','err'); return; }
+
+  const btn = $('u-save-btn');
+  btn.disabled = true; btn.textContent = 'Creazione…';
+
   try {
-    await db('POST', T('profili'), { body });
-    closeM(); toast('Utente aggiunto'); renderUtenti();
-  } catch(e) { toast('Errore: '+e.message,'err'); }
+    const res = await fetch(`${CFG.FN}/regint-manage-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${S.token}`,
+      },
+      body: JSON.stringify({ action: 'create', email, password: pwd, nome, cognome, ruolo }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Errore creazione utente');
+    closeM(); toast('Utente creato'); renderUtenti();
+  } catch(e) {
+    toast('Errore: '+e.message, 'err');
+    btn.disabled = false; btn.textContent = 'Crea utente';
+  }
 }
 
 function openEditUtente(r) {
