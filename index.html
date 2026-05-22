@@ -1132,12 +1132,12 @@ function buildForm(r = {}) {
   const selTIn = S.tipiIntervento.map(o=>`<option value="${esc(o.nome)}"${r.tipo_intervento===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   const selMat = S.matProt.map(o=>`<option value="${esc(o.nome)}"${r.materiale_protesico===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   return `
-    <div class="fg">
-      <div class="fgroup" style="flex:0 0 18%">
+    <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:14px 18px;margin-bottom:14px">
+      <div class="fgroup">
         <label>Progressivo</label>
         <input id="f-numero" type="number" value="${r._nextNum || r.numero || ''}" readonly style="background:var(--g100);color:var(--g500)">
       </div>
-      <div class="fgroup" style="flex:0 0 18%">
+      <div class="fgroup">
         <label>Anno</label>
         <input id="f-anno" type="text" value="${r._anno || (r.data_intervento ? r.data_intervento.substring(0,4) : new Date().getFullYear())}" readonly style="background:var(--g100);color:var(--g500)">
       </div>
@@ -1145,6 +1145,8 @@ function buildForm(r = {}) {
         <label>Data intervento</label>
         <input id="f-data" type="date" value="${r.data_intervento || r._today || dateToStr(new Date())}" ${r.id ? 'readonly style="background:var(--g100);color:var(--g500)"' : ''}>
       </div>
+    </div>
+    <div class="fg">
       <div class="fgroup span2">
         <label>Cognome e Nome paziente</label>
         <input id="f-cognome" value="${esc(r.cognomenome||'')}">
@@ -1209,6 +1211,7 @@ function buildForm(r = {}) {
         </select>
         <textarea id="f-desc" style="margin-top:6px">${esc(r.descrizione||'')}</textarea>
       </div>
+    </div>
     </div>
     <div class="det-section-title" style="margin-top:20px">Orari sala operatoria</div>
     <div class="fg fg3">
