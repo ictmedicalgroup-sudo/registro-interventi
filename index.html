@@ -1664,7 +1664,7 @@ function renderUtentiTabella(rows) {
             <td>
               <div style="display:flex;gap:4px;">
                 <button class="btn btn-secondary btn-sm btn-icon" title="Modifica" onclick='openEditUtente(${JSON.stringify(r)})'>✏️</button>
-                <button class="btn btn-danger btn-sm btn-icon" title="Elimina" onclick="confirmDelUtente('${r.id}','${esc(r.cognome||'')} ${esc(r.nome||'')}'))">🗑</button>
+                <button class="btn btn-danger btn-sm btn-icon" title="Elimina" onclick="confirmDelUtente('${r.id}','${esc(r.cognome||'')} ${esc(r.nome||'')}')" >🗑</button>
               </div>
             </td>
           </tr>`).join('')}
