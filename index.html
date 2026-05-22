@@ -206,7 +206,7 @@ tbody td { padding: 10px 14px; font-size: 13px; color: var(--g700); vertical-ali
 .modal {
   background: #fff; border-radius: var(--rlg); width: 100%; max-width: 760px;
   box-shadow: var(--sh-lg); border: 1px solid var(--g200);
-  animation: mopen .18s ease-out;
+  animation: mopen .18s ease-out; overflow: hidden;
 }
 @keyframes mopen { from { opacity:0; transform: translateY(-12px); } to { opacity:1; transform: none; } }
 .modal-head {
@@ -227,7 +227,7 @@ tbody td { padding: 10px 14px; font-size: 13px; color: var(--g700); vertical-ali
 .close-btn:hover { color: var(--g900); }
 
 /* ── Form grid ── */
-.fg { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+.fg { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; width: 100%; }
 .fg.fg1 { grid-template-columns: 1fr; }
 .fg.fg3 { grid-template-columns: 1fr 1fr 1fr; }
 .fg .span2 { grid-column: span 2; }
@@ -1132,7 +1132,7 @@ function buildForm(r = {}) {
   const selTIn = S.tipiIntervento.map(o=>`<option value="${esc(o.nome)}"${r.tipo_intervento===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   const selMat = S.matProt.map(o=>`<option value="${esc(o.nome)}"${r.materiale_protesico===o.nome?' selected':''}>${esc(o.nome)}</option>`).join('');
   return `
-    <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:14px 18px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:14px 18px;margin-bottom:14px;width:100%">
       <div class="fgroup">
         <label>Progressivo</label>
         <input id="f-numero" type="number" value="${r._nextNum || r.numero || ''}" readonly style="background:var(--g100);color:var(--g500)">
@@ -1212,11 +1212,10 @@ function buildForm(r = {}) {
         <textarea id="f-desc" style="margin-top:6px">${esc(r.descrizione||'')}</textarea>
       </div>
     </div>
-    </div>
     <div class="det-section-title" style="margin-top:20px">Orari sala operatoria</div>
     <div class="fg fg3">
       <div class="fgroup">
-        <label>Ingresso sala</label>
+        <label>Ingresso sala operatoria</label>
         <input id="f-ora-ing" type="time" value="${r.ora_ingresso||''}">
       </div>
       <div class="fgroup">
@@ -1224,11 +1223,11 @@ function buildForm(r = {}) {
         <input id="f-ora-ian" type="time" value="${r.ora_inizio_anestesia||''}">
       </div>
       <div class="fgroup">
-        <label>Inizio chirurgia</label>
+        <label>Inizio intervento</label>
         <input id="f-ora-ich" type="time" value="${r.ora_inizio_chirurgia||''}">
       </div>
       <div class="fgroup">
-        <label>Fine chirurgia</label>
+        <label>Fine intervento</label>
         <input id="f-ora-fch" type="time" value="${r.ora_fine_chirurgia||''}">
       </div>
       <div class="fgroup">
@@ -1236,7 +1235,7 @@ function buildForm(r = {}) {
         <input id="f-ora-fan" type="time" value="${r.ora_fine_anestesia||''}">
       </div>
       <div class="fgroup">
-        <label>Uscita sala</label>
+        <label>Uscita sala operatoria</label>
         <input id="f-ora-usc" type="time" value="${r.ora_uscita||''}">
       </div>
     </div>`;
