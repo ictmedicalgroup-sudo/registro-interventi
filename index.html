@@ -1664,6 +1664,7 @@ function renderUtentiTabella(rows) {
             <td>
               <div style="display:flex;gap:4px;">
                 <button class="btn btn-secondary btn-sm btn-icon" title="Modifica" onclick='openEditUtente(${JSON.stringify(r)})'>✏️</button>
+                <button class="btn btn-danger btn-sm btn-icon" title="Elimina" onclick="confirmDelUtente('${r.id}','${esc(r.cognome||'')} ${esc(r.nome||'')}'))">🗑</button>
               </div>
             </td>
           </tr>`).join('')}
@@ -1767,6 +1768,15 @@ async function saveEditUtente(id) {
     await db('PATCH', T('profili'), { flt: `id=eq.${id}`, body });
     closeM(); toast('Modifiche salvate'); renderUtenti();
   } catch(e) { toast('Errore: '+e.message,'err'); }
+}
+
+async function confirmDelUtente(id, nome) {
+  openConf(`Eliminare l'utente <strong>${nome}</strong>?<br><small style="color:var(--g500)">Verrà rimosso solo il profilo. L'account Auth va eliminato dal Dashboard Supabase.</small>`, async () => {
+    try {
+      await db('DELETE', T('profili'), { flt: `id=eq.${id}` });
+      toast('Profilo eliminato'); renderUtenti();
+    } catch(e) { toast('Errore: '+e.message,'err'); }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
