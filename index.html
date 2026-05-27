@@ -61,28 +61,18 @@ body { background: var(--g50); color: var(--g900); font-family: 'Raleway', sans-
   background: var(--g50);
 }
 .lcard {
-  background: #fff; border-radius: var(--rlg); padding: 38px;
+  background: #fff; border-radius: var(--rlg); padding: 40px 38px;
   width: 100%; max-width: 420px;
-  box-shadow: 0 4px 32px rgba(74,76,77,.10);
+  box-shadow: var(--sh-lg);
   border: 1px solid var(--g200);
 }
-.lcard h2 { font-size: 15px; font-weight: 600; color: var(--g700); margin: 24px 0 18px; }
-.lcard label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .8px;
-  text-transform: uppercase; color: var(--g500); margin-bottom: 5px; }
-.lcard input {
-  width: 100%; padding: 10px 13px; border: 1.5px solid var(--g200);
-  border-radius: 8px; background: #EEF5E3; font-family: 'Raleway', sans-serif;
-  font-size: 14px; color: var(--g900); outline: none; transition: border-color .2s;
-  margin-bottom: 14px;
-}
-.lcard input:focus { border-color: var(--verde); }
-.lcard .btn-login {
-  width: 100%; padding: 11px; background: #9DBF60; color: #fff; border: none;
-  border-radius: 8px; font-family: 'Raleway', sans-serif; font-size: 14px;
-  font-weight: 700; cursor: pointer; letter-spacing: .5px; transition: background .2s;
-}
-.lcard .btn-login:hover { background: #8aad4e; }
-#lerr { color: var(--red); font-size: 12px; margin-top: 8px; min-height: 18px; }
+.lfield { margin-bottom: 16px; }
+.lfield label { display: block; font-size: 12px; font-weight: 600; color: var(--g700); letter-spacing: .5px; margin-bottom: 6px; }
+.lfield input { width: 100%; padding: 11px 14px; border: 1px solid var(--g200); border-radius: var(--rsm); background: #EEF5E3; font-family: 'Raleway', sans-serif; font-size: 14px; color: var(--g900); outline: none; transition: border-color .2s; }
+.lfield input:focus { border-color: var(--verde); }
+.lbtn { width: 100%; padding: 12px; background: var(--verde); color: #fff; border: none; border-radius: var(--rsm); font-family: 'Raleway', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .2s; }
+.lbtn:hover { opacity: .88; }
+.lerr { background: var(--red-light); color: var(--red); border-radius: var(--rsm); padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
 
 /* ── App shell ── */
 #app { display: flex; flex-direction: column; min-height: 100vh; }
@@ -330,17 +320,11 @@ tbody td { padding: 10px 14px; font-size: 13px; color: var(--g700); vertical-ali
 <div id="lp">
   <div class="lcard">
     <div id="login-logo"></div>
-    <div style="margin-top:14px;font-size:13px;color:var(--grigio);text-align:center">Accesso riservato al personale autorizzato [test]</div>
-    <div class="fgroup">
-      <label>Email</label>
-      <input id="l-email" type="email" placeholder="nome@medicalgroup.it" autocomplete="username">
-    </div>
-    <div class="fgroup">
-      <label>Password</label>
-      <input id="l-pwd" type="password" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button class="btn-login" onclick="doLogin()">Accedi</button>
-    <div id="lerr"></div>
+    <div style="margin-top:14px;font-size:13px;color:var(--grigio);text-align:center">Accesso riservato al personale autorizzato</div>
+    <div id="lerr" class="lerr" style="margin-top:14px;"></div>
+    <div class="lfield" style="margin-top:12px;"><label>E-Mail</label><input type="email" id="l-email" placeholder="nome@medicalgroup.it" autocomplete="username"/></div>
+    <div class="lfield"><label>Password</label><input type="password" id="l-pwd" placeholder="••••••••" autocomplete="current-password"/></div>
+    <button class="lbtn" id="lbtn-login" onclick="doLogin()">Accedi</button>
     <div id="login-ver" style="margin-top:14px;font-size:10px;color:var(--grigio-chiaro);text-align:center;letter-spacing:.5px;"></div>
   </div>
 </div>
@@ -499,37 +483,27 @@ async function supaLogin(email, password) {
 async function doLogin() {
   const email = $('l-email').value.trim();
   const pwd   = $('l-pwd').value;
-  $('lerr').textContent = '';
-  if (!email || !pwd) { $('lerr').textContent = 'Inserisci email e password.'; return; }
+  const err   = $('lerr');
+  const btn   = $('lbtn-login');
+  err.style.display = 'none';
+  if (!email || !pwd) { err.textContent = 'Inserisci email e password.'; err.style.display = 'block'; return; }
+  btn.textContent = 'Accesso…'; btn.disabled = true;
   try {
     const data = await supaLogin(email, pwd);
     S.token = data.access_token;
     S.user  = data.user;
-    // carica ruolo dal profilo
-    try {
-      let rows = await dbGet(T('profili'), { flt: `id=eq.${S.user.id}`, sel: 'ruolo,nome,cognome' });
-      // Fallback: se il profilo non esiste (trigger non eseguito), lo crea
-      if (!rows || !rows[0]) {
-        const meta = S.user.user_metadata || {};
-        await db('POST', T('profili'), { body: {
-          id: S.user.id,
-          nome:    meta.nome    || '',
-          cognome: meta.cognome || '',
-          email:   S.user.email || '',
-          ruolo:   meta.ruolo   || 'utente',
-          attivo:  true,
-        }});
-        rows = await dbGet(T('profili'), { flt: `id=eq.${S.user.id}`, sel: 'ruolo,nome,cognome' });
-      }
-      if (rows && rows[0]) {
-        S.user.ruolo = rows[0].ruolo;
-        S.user.nome_display = `${rows[0].nome || ''} ${rows[0].cognome || ''}`.trim() || S.user.email;
-      }
-    } catch(e) { S.user.ruolo = 'utente'; }
+    // Carica profilo — accesso negato se non esiste
+    const rows = await dbGet(T('profili'), { flt: `id=eq.${S.user.id}`, sel: 'ruolo,nome,cognome,attivo' });
+    if (!rows || !rows[0]) throw new Error('Profilo non trovato. Contatta l\'amministratore.');
+    if (rows[0].attivo === false) throw new Error('Utente disabilitato. Contatta l\'amministratore.');
+    S.user.ruolo = rows[0].ruolo;
+    S.user.nome_display = `${rows[0].nome || ''} ${rows[0].cognome || ''}`.trim() || S.user.email;
     await loadLookup();
     showApp();
   } catch(e) {
-    $('lerr').textContent = e.message || 'Credenziali non valide.';
+    err.textContent = e.message || 'Credenziali non valide.';
+    err.style.display = 'block';
+    btn.textContent = 'Accedi'; btn.disabled = false;
   }
 }
 
@@ -1679,8 +1653,21 @@ function openNuovoUtente() {
       <div class="fg fg1">
         <div class="fgroup"><label>Nome</label><input id="u-nome"></div>
         <div class="fgroup"><label>Cognome</label><input id="u-cognome"></div>
-        <div class="fgroup"><label>Email</label><input id="u-email" type="email" placeholder="nome@medicalgroup.it"></div>
-        <div class="fgroup"><label>Password</label><input id="u-pwd" type="password" placeholder="minimo 8 caratteri"></div>
+        <div class="fgroup">
+          <label>Email</label>
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <input id="u-email" type="email" placeholder="nome@medicalgroup.it" style="flex:1">
+            <button id="u-check-btn" class="btn btn-secondary btn-sm" onclick="checkEmailRegint()" style="white-space:nowrap">Verifica</button>
+          </div>
+          <div id="u-email-info" style="font-size:11px;margin-top:5px;display:none"></div>
+        </div>
+        <div id="u-pwd-wrap">
+          <div class="fgroup">
+            <label>Password</label>
+            <input id="u-pwd" type="password" placeholder="minimo 8 caratteri">
+            <div style="font-size:11px;color:var(--g500);margin-top:4px">Se l'utente esiste già in un altro tool, la password non serve.</div>
+          </div>
+        </div>
         <div class="fgroup">
           <label>Ruolo</label>
           <select id="u-ruolo">
@@ -1696,32 +1683,65 @@ function openNuovoUtente() {
     </div>`);
 }
 
+async function checkEmailRegint() {
+  const email = $('u-email').value.trim();
+  if (!email) { toast('Inserisci un\'email', 'warn'); return; }
+  const btn = $('u-check-btn');
+  btn.textContent = '…'; btn.disabled = true;
+  try {
+    const res = await fetch(`${CFG.FN}/regint-manage-user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${S.token}` },
+      body: JSON.stringify({ action: 'check_email', email }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    const info = $('u-email-info');
+    info.dataset.exists = data.exists ? 'true' : 'false';
+    if (data.exists) {
+      info.style.cssText = 'display:block;color:#1a7a40;font-weight:600;font-size:12px;margin-top:5px';
+      info.textContent = '✓ Utente già registrato — verrà collegato (password non richiesta)';
+      $('u-pwd-wrap').style.display = 'none';
+      if ($('u-pwd')) $('u-pwd').value = '';
+    } else {
+      info.style.cssText = 'display:block;color:var(--g500);font-size:12px;margin-top:5px';
+      info.textContent = 'Nuovo utente — verrà creato un account con la password indicata';
+      $('u-pwd-wrap').style.display = '';
+    }
+  } catch(e) { toast('Errore verifica: ' + e.message, 'err'); }
+  btn.textContent = 'Verifica'; btn.disabled = false;
+}
+
 async function saveNuovoUtente() {
   const nome    = $('u-nome').value.trim();
   const cognome = $('u-cognome').value.trim();
   const email   = $('u-email').value.trim();
-  const pwd     = $('u-pwd').value;
   const ruolo   = $('u-ruolo').value;
-  if (!email || !pwd) { toast('Email e password obbligatorie','err'); return; }
-  if (pwd.length < 8)  { toast('Password minimo 8 caratteri','err'); return; }
+  const info    = $('u-email-info');
+  const alreadyExists = info?.dataset.exists === 'true';
+  const pwd = $('u-pwd')?.value || '';
+
+  if (!email) { toast('Email obbligatoria', 'err'); return; }
+  if (!alreadyExists && pwd.length < 8) { toast('Password minimo 8 caratteri', 'err'); return; }
 
   const btn = $('u-save-btn');
   btn.disabled = true; btn.textContent = 'Creazione…';
 
   try {
+    const payload = { action: 'create', email, nome, cognome, ruolo };
+    if (!alreadyExists) payload.password = pwd;
     const res = await fetch(`${CFG.FN}/regint-manage-user`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${S.token}`,
-      },
-      body: JSON.stringify({ action: 'create', email, password: pwd, nome, cognome, ruolo }),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${S.token}` },
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Errore creazione utente');
-    closeM(); toast('Utente creato'); renderUtenti();
+    closeM();
+    toast(data.auth_created ? 'Utente creato' : 'Profilo collegato a utente esistente');
+    renderUtenti();
   } catch(e) {
-    toast('Errore: '+e.message, 'err');
+    toast('Errore: ' + e.message, 'err');
     btn.disabled = false; btn.textContent = 'Crea utente';
   }
 }
@@ -1748,6 +1768,10 @@ function openEditUtente(r) {
             <option value="false"${!r.attivo?' selected':''}>Disattivo</option>
           </select>
         </div>
+        <div class="fgroup">
+          <label>Nuova password <span style="font-weight:400;font-size:11px;color:var(--g500)">(lascia vuoto per non modificare)</span></label>
+          <input id="u-newpwd" type="password" placeholder="minimo 8 caratteri">
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1757,25 +1781,42 @@ function openEditUtente(r) {
 }
 
 async function saveEditUtente(id) {
-  const body = {
+  const pwd = $('u-newpwd')?.value || '';
+  if (pwd && pwd.length < 8) { toast('Password minimo 8 caratteri', 'err'); return; }
+  const payload = {
+    action:  'update',
+    user_id: id,
     nome:    $('u-nome').value.trim(),
     cognome: $('u-cognome').value.trim(),
     email:   $('u-email').value.trim(),
     ruolo:   $('u-ruolo').value,
     attivo:  $('u-attivo').value === 'true',
   };
+  if (pwd) payload.password = pwd;
   try {
-    await db('PATCH', T('profili'), { flt: `id=eq.${id}`, body });
+    const res = await fetch(`${CFG.FN}/regint-manage-user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${S.token}` },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Errore aggiornamento');
     closeM(); toast('Modifiche salvate'); renderUtenti();
-  } catch(e) { toast('Errore: '+e.message,'err'); }
+  } catch(e) { toast('Errore: ' + e.message, 'err'); }
 }
 
 async function confirmDelUtente(id, nome) {
-  openConf(`Eliminare l'utente <strong>${nome}</strong>?<br><small style="color:var(--g500)">Verrà rimosso solo il profilo. L'account Auth va eliminato dal Dashboard Supabase.</small>`, async () => {
+  openConf(`Rimuovere il profilo di <strong>${nome}</strong> dal Registro Interventi?<br><small style="color:var(--g500)">L'account di accesso rimane attivo sugli altri tool.</small>`, async () => {
     try {
-      await db('DELETE', T('profili'), { flt: `id=eq.${id}` });
-      toast('Profilo eliminato'); renderUtenti();
-    } catch(e) { toast('Errore: '+e.message,'err'); }
+      const res = await fetch(`${CFG.FN}/regint-manage-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${S.token}` },
+        body: JSON.stringify({ action: 'delete_profile', user_id: id }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Errore');
+      toast('Profilo rimosso'); renderUtenti();
+    } catch(e) { toast('Errore: ' + e.message, 'err'); }
   });
 }
 
