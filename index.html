@@ -1578,19 +1578,22 @@ function confirmLookupDel(tabId, id) {
 async function checkEmailLive(inputEl,infoEl,pwdWrap,fnName){
   const email=inputEl.value.trim();
   infoEl.style.display='none'; infoEl.dataset.exists='';
-  if(!email||!email.includes('@')) return;
-  // indicatore di caricamento
-  infoEl.style.cssText='display:block;margin-top:6px;padding:6px 12px;font-size:12px;color:var(--g500)';
+  if(!email||!email.includes('@')||!email.includes('.')) return;
+  infoEl.style.cssText='display:block;margin-top:6px;padding:6px 10px;border-radius:var(--rsm);background:var(--g50);border:1px solid var(--g200);font-size:12px;color:var(--g500)';
   infoEl.textContent='Verifica in corso\u2026';
   try{
     const res=await fetch(`${CFG.FN}/${fnName}`,{method:'POST',
       headers:{'Authorization':`Bearer ${S.token}`,'Content-Type':'application/json'},
       body:JSON.stringify({action:'check_email',email})});
     const data=await res.json();
-    if(!data.ok){ infoEl.style.display='none'; return; }
+    if(!data.ok){
+      infoEl.style.cssText='display:block;margin-top:6px;padding:6px 10px;border-radius:var(--rsm);background:var(--red-light);border:1px solid var(--red);font-size:12px;color:var(--red)';
+      infoEl.textContent='Errore verifica: '+(data.error||'risposta non valida');
+      return;
+    }
     infoEl.dataset.exists=data.exists?'true':'false';
     if(data.exists){
-      infoEl.style.cssText='display:block;margin-top:6px;padding:8px 12px;border-radius:var(--rsm);background:#EEF5E3;border:1px solid #9DBF60;font-size:12px;color:#2e6e1a;font-weight:600';
+      infoEl.style.cssText='display:block;margin-top:6px;padding:8px 12px;border-radius:var(--rsm);background:#EEF5E3;border:1px solid var(--verde);font-size:12px;color:#2e6e1a;font-weight:600';
       infoEl.textContent='\u2713 Utente gi\u00e0 presente \u2014 la password rimane la stessa impostata per gli altri tool';
       if(pwdWrap){ pwdWrap.style.display='none'; const p=pwdWrap.querySelector('input[type=password]'); if(p) p.value=''; }
     }else{
@@ -1598,7 +1601,10 @@ async function checkEmailLive(inputEl,infoEl,pwdWrap,fnName){
       infoEl.textContent='Nuovo utente \u2014 inserisci una password per creare l\'account';
       if(pwdWrap) pwdWrap.style.display='';
     }
-  }catch(e){ infoEl.style.display='none'; }
+  }catch(e){
+    infoEl.style.cssText='display:block;margin-top:6px;padding:6px 10px;border-radius:var(--rsm);background:var(--red-light);border:1px solid var(--red);font-size:12px;color:var(--red)';
+    infoEl.textContent='Errore di rete: '+e.message;
+  }
 }
 const PWD_WARN_HTML='<div style="margin-top:6px;padding:8px 12px;border-radius:var(--rsm);background:#FEF0E3;border:1px solid #f5c28a;font-size:12px;color:#7a3800;font-weight:600">\u26a0 Attenzione: questa password sar\u00e0 valida per tutti i tool che usano lo stesso account.</div>';
 function renderUtentiTable(list,pb){
@@ -1654,6 +1660,7 @@ async function renderUtenti() {
 
 function openUtenteModal(u){
   const isNew=!u;
+  const attivoChecked=u?.attivo!==false;
   const html=`
     <div class="modal-head">
       <h3>${isNew?'+ Nuovo utente':'\u270f Modifica utente'}</h3>
@@ -1666,7 +1673,7 @@ function openUtenteModal(u){
         <div class="fgroup span2"><label>E-Mail *</label>
           <input id="um-email" type="email" value="${esc(u?.email||'')}"
             ${isNew?'placeholder="nome@medicalgroup.it"':'readonly style="background:var(--g100);color:var(--g500);cursor:not-allowed"'}/>
-          ${isNew?'<div id="um-email-info" style="display:none;margin-top:4px"></div>':''}
+          ${isNew?'<div id="um-email-info" style="display:none;margin-top:6px"></div>':''}
         </div>
         ${isNew?`<div class="fgroup span2" id="um-pwd-wrap"><label>Password *</label>
           <input id="um-pwd" type="password" placeholder="Minimo 8 caratteri"/>
@@ -1680,11 +1687,16 @@ function openUtenteModal(u){
             <option value="admin"${u?.ruolo==='admin'?' selected':''}>admin</option>
           </select>
         </div>
-        <div class="fgroup"><label>Stato</label>
-          <select id="um-attivo-sel">
-            <option value="true"${u?.attivo!==false?' selected':''}>Attivo</option>
-            <option value="false"${u?.attivo===false?' selected':''}>Disattivo</option>
-          </select>
+        <div class="fgroup" style="justify-content:flex-end;padding-bottom:2px">
+          <label style="text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--g700);display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:auto">
+            <span style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;">
+              <input type="checkbox" id="um-attivo" ${attivoChecked?'checked':''}
+                style="opacity:0;width:0;height:0;position:absolute"/>
+              <span id="um-attivo-track" style="position:absolute;inset:0;border-radius:11px;background:${attivoChecked?'var(--verde)':'var(--g300)'};transition:background .2s;cursor:pointer"></span>
+              <span id="um-attivo-knob" style="position:absolute;top:3px;left:${attivoChecked?'21':'3'}px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s"></span>
+            </span>
+            Utente attivo
+          </label>
         </div>
         ${!isNew?`<div class="fgroup span2">
           <label>Nuova password <span style="font-weight:400;font-size:11px;color:var(--g500)">(lascia vuoto per non modificare)</span></label>
@@ -1698,12 +1710,48 @@ function openUtenteModal(u){
       <button class="btn btn-primary" id="um-save">Salva</button>
     </div>`;
   openM(html);
+
+  // toggle visivo attivo
+  const cb=document.getElementById('um-attivo');
+  const track=document.getElementById('um-attivo-track');
+  const knob=document.getElementById('um-attivo-knob');
+  if(cb&&track&&knob){
+    cb.addEventListener('change',()=>{
+      track.style.background=cb.checked?'var(--verde)':'var(--g300)';
+      knob.style.left=cb.checked?'21px':'3px';
+    });
+  }
+
+  // check email live — su input (con debounce) e su blur
+  if(isNew){
+    const emailEl=document.getElementById('um-email');
+    const infoEl=document.getElementById('um-email-info');
+    const pwdWrap=document.getElementById('um-pwd-wrap');
+    let debTimer=null;
+    const doCheck=()=>checkEmailLive(emailEl,infoEl,pwdWrap,'regint-manage-user');
+    emailEl.addEventListener('blur', doCheck);
+    emailEl.addEventListener('input',()=>{
+      clearTimeout(debTimer);
+      infoEl.style.display='none'; infoEl.dataset.exists='';
+      if(emailEl.value.includes('@')&&emailEl.value.includes('.')){
+        debTimer=setTimeout(doCheck, 600);
+      }
+    });
+  }
+
+  // avviso password cross-tool nella modifica
+  if(!isNew){
+    const pwdEl=document.getElementById('um-newpwd');
+    const warnEl=document.getElementById('um-pwd-warn');
+    if(pwdEl&&warnEl) pwdEl.addEventListener('input',()=>{warnEl.style.display=pwdEl.value.length>0?'':'none';});
+  }
+
   document.getElementById('um-save').addEventListener('click', async()=>{
     const nome=document.getElementById('um-nome').value.trim();
     const cognome=document.getElementById('um-cognome').value.trim();
     const email=document.getElementById('um-email').value.trim();
     const ruolo=document.getElementById('um-ruolo').value;
-    const attivo=document.getElementById('um-attivo-sel').value==='true';
+    const attivo=document.getElementById('um-attivo').checked;
     if(!email){toast('Email obbligatoria','err');return;}
     const btn=document.getElementById('um-save');
     btn.disabled=true; btn.textContent='Salvataggio\u2026';
@@ -1739,19 +1787,6 @@ function openUtenteModal(u){
       renderUtenti();
     }catch(e){toast(e.message,'err');btn.disabled=false;btn.textContent='Salva';}
   });
-  // check email live onblur
-  if(isNew){
-    const emailEl=document.getElementById('um-email');
-    const infoEl=document.getElementById('um-email-info');
-    const pwdWrap=document.getElementById('um-pwd-wrap');
-    emailEl.addEventListener('blur',()=>checkEmailLive(emailEl,infoEl,pwdWrap,'regint-manage-user'));
-  }
-  // avviso password cross-tool
-  if(!isNew){
-    const pwdEl=document.getElementById('um-newpwd');
-    const warnEl=document.getElementById('um-pwd-warn');
-    if(pwdEl&&warnEl) pwdEl.addEventListener('input',()=>{warnEl.style.display=pwdEl.value.length>0?'':'none';});
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════
