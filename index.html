@@ -488,10 +488,15 @@ async function doLogin() {
     if(rows[0].attivo===false) throw new Error('Utente disabilitato. Contatta l\'amministratore.');
     S.user.ruolo=rows[0].ruolo;
     S.user.nome_display=`${rows[0].nome||''} ${rows[0].cognome||''}`.trim()||S.user.email;
-    await loadLookup();
+    // loadLookup con timeout di sicurezza — se una query RLS va in stallo non blocca il login
+    await Promise.race([
+      loadLookup(),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout caricamento dati. Riprova.')),10000))
+    ]);
     showApp();
   } catch(e) {
     err.textContent=e.message||'Credenziali non valide.';err.style.display='block';
+  } finally {
     btn.textContent='Accedi';btn.disabled=false;
   }
 }
@@ -608,26 +613,28 @@ function renderPage() {
 // CARICAMENTO LOOKUP
 // ═══════════════════════════════════════════════════════════════
 async function loadLookup() {
+  // Ogni query è indipendente — se una fallisce per RLS le altre continuano
+  const safe = async (fn) => { try { return await fn(); } catch(e) { return []; } };
   const [op1, sec, ane, inf, diag, tan, tint, mat, desc] = await Promise.all([
-    dbGet(T('op1'), { ord: 'nome.asc' }),
-    dbGet(T('secondi'), { ord: 'nome.asc' }),
-    dbGet(T('anestesisti'), { ord: 'nome.asc' }),
-    dbGet(T('infermieri'), { ord: 'nome.asc' }),
-    dbGet(T('diagnosi'), { ord: 'nome.asc' }),
-    dbGet(T('tipo_anestesia'), { ord: 'nome.asc' }),
-    dbGet(T('tipo_intervento'), { ord: 'nome.asc' }),
-    dbGet(T('materiale_protesico'), { ord: 'nome.asc' }),
-    dbGet(T('descrizioni'), { ord: 'codice.asc' }),
+    safe(() => dbGet(T('op1'),              { ord: 'nome.asc' })),
+    safe(() => dbGet(T('secondi'),          { ord: 'nome.asc' })),
+    safe(() => dbGet(T('anestesisti'),      { ord: 'nome.asc' })),
+    safe(() => dbGet(T('infermieri'),       { ord: 'nome.asc' })),
+    safe(() => dbGet(T('diagnosi'),         { ord: 'nome.asc' })),
+    safe(() => dbGet(T('tipo_anestesia'),   { ord: 'nome.asc' })),
+    safe(() => dbGet(T('tipo_intervento'),  { ord: 'nome.asc' })),
+    safe(() => dbGet(T('materiale_protesico'), { ord: 'nome.asc' })),
+    safe(() => dbGet(T('descrizioni'),      { ord: 'codice.asc' })),
   ]);
-  S.operatori   = op1   || [];
-  S.secondi     = sec   || [];
-  S.anestesisti = ane   || [];
-  S.infermieri  = inf   || [];
-  S.diagnosi    = diag  || [];
-  S.tipiAnestesia   = tan  || [];
-  S.tipiIntervento  = tint || [];
-  S.matProt     = mat   || [];
-  S.descrizioni = desc  || [];
+  S.operatori       = op1   || [];
+  S.secondi         = sec   || [];
+  S.anestesisti     = ane   || [];
+  S.infermieri      = inf   || [];
+  S.diagnosi        = diag  || [];
+  S.tipiAnestesia   = tan   || [];
+  S.tipiIntervento  = tint  || [];
+  S.matProt         = mat   || [];
+  S.descrizioni     = desc  || [];
 }
 
 // ═══════════════════════════════════════════════════════════════
